@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Laws DictVer="">
+<Law OriginalPromulgateDate="" LawType="" Lang="ja" Year="" Era="" Num="">
+	<LawNum>法令番号</LawNum>
+	<LawBody>
+		<LawTitle>法令名</LawTitle>
+		<EnactStatement>公布文</EnactStatement>
+		<MainProvision>
+			<Article Num="1">
+				<ArticleCaption> (第一条 条見出し）</ArticleCaption>
+				<ArticleTitle>第一条</ArticleTitle>
+				<Paragraph Num="1">
+					<ParagraphNum />
+					<ParagraphSentence>
+						<Sentence> 第一項本文 </Sentence>
+					</ParagraphSentence>
+				</Paragraph>
+			</Article>
+			<Article Num="2">
+				<ArticleCaption>（第二条 条見出し）</ArticleCaption>
+				<ArticleTitle>第二条</ArticleTitle>
+				<Paragraph Num="1">
+					<ParagraphNum />
+					<ParagraphSentence>
+						<Sentence> 第一項本文 </Sentence>
+					</ParagraphSentence>
+				</Paragraph>
+				<Paragraph Num="2">
+					<ParagraphNum>２</ParagraphNum>
+					<ParagraphSentence>
+						<Sentence Num="1" Function="Main">第二項本文</Sentence>
+						<Sentence Num="2" Function="Proviso">第二項但し書き</Sentence>
+					</ParagraphSentence>
+				</Paragraph>
+			</Article>
+		</MainProvision>
+		<SupplProvision>
+			<SupplProvisionLabel>附　則</SupplProvisionLabel>
+			<Paragraph Num="1">
+				<ParagraphNum>１</ParagraphNum>
+				<ParagraphSentence>
+					<Sentence>附則第一項本文</Sentence>
+				</ParagraphSentence>
+			</Paragraph>
+			<Paragraph Num="2">
+				<ParagraphNum>２</ParagraphNum>
+				<ParagraphSentence>
+					<Sentence>附則第二項本文</Sentence>
+				</ParagraphSentence>
+			</Paragraph>
+			<Paragraph Num="3">
+				<ParagraphNum>３</ParagraphNum>
+				<ParagraphSentence>
+					<Sentence>附則第三項本文</Sentence>
+				</ParagraphSentence>
+			</Paragraph>
+		</SupplProvision>
+		<SupplProvision AmendLawNum="">
+			<SupplProvisionLabel>附　則</SupplProvisionLabel>
+			<Paragraph Num="1">
+				<ParagraphNum />
+				<ParagraphSentence>
+					<Sentence> 附則第三項本文 </Sentence>
+				</ParagraphSentence>
+			</Paragraph>
+		</SupplProvision>
+	</LawBody>
+</Law>
+</Laws>
