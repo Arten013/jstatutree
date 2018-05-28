@@ -61,84 +61,80 @@ class XMLExpansion(object):
     def _read_text(self):
         return get_text(self.root, "")
 
-class Law(XMLExpansion, LawBase):
+class Law(XMLExpansion, jstatutree.Law):
     pass
 
-class MainProvision(ProvBase, ETreeLawElementBase):
+class LawBody(XMLExpansion, jstatutree.LawBody):
     pass
 
-class SupplProvision(ProvBase, ETreeLawElementBase):
+class MainProvision(XMLExpansion, jstatutree.MainProvision):
     pass
 
-class Part(SuperordinateElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (MainProvision,)
+class Part(XMLExpansion, jstatutree.Part):
+    pass
 
-class Chapter(SuperordinateElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (MainProvision, Part)
+class Chapter(XMLExpansion, jstatutree.Chapter):
+    pass
 
-class Section(SuperordinateElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (Chapter,)
+class Section(XMLExpansion, jstatutree.Section):
+    pass
 
-class Subsection(SuperordinateElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (Section,)
+class Subsection(XMLExpansion, jstatutree.Subsection):
+    pass
 
-class Division(SuperordinateElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (Subsection,)
+class Division(XMLExpansion, jstatutree.Division):
+    pass
 
-class Article(BasicElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (MainProvision, SupplProvision, Part, Chapter, Section, Subsection, Division)
+class Article(XMLExpansion, jstatutree.Article):
+    pass
 
-class ETreeSentenceBase(SentenceBase, ETreeLawElementBase):
-    def inheritance(self, root):
-        self.root = root
-        super().inheritance()
+class ArticleCaption(XMLExpansion, jstatutree.ArticleCaption):
+    pass
 
-    def extract_text(self):
-        return list(get_text(s, "") for s in self.root.findall('./Sentence'.format(self.__class__.__name__)))
+class Paragraph(XMLExpansion, jstatutree.Paragraph):
+    pass
 
-class ArticleCaption(CaptionBase, ETreeSentenceBase):
-    PARENT_CANDIDATES = (Article,)
-    def extract_text(self):
-        return [get_text(self.root, '')]
+class ParagraphSentence(XMLExpansion, jstatutree.ParagraphSentence):
+    pass
 
-class Paragraph(BasicElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (MainProvision, SupplProvision, Article)
+class ParagraphCaption(XMLExpansion, jstatutree.ParagraphCaption):
+    pass
 
-class ParagraphSentence(ETreeSentenceBase):
-    PARENT_CANDIDATES = (Paragraph,)
+class Item(XMLExpansion, jstatutree.Item):
+    pass
 
-class Item(ItemBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (Article, Paragraph)
+class ItemSentence(XMLExpansion, jstatutree.ItemSentence):
+    pass
 
-class ItemSentence(ETreeSentenceBase):
-    PARENT_CANDIDATES = (Item,)
+class Subitem1(XMLExpansion, jstatutree.Subitem1):
+    pass
 
-class Subitem1(Item):
-    PARENT_CANDIDATES = (Item,)
+class Subitem1Sentence(XMLExpansion, jstatutree.Subitem1Sentence):
+    pass
 
-class Subitem1Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Item,)
+class Subitem2(XMLExpansion, jstatutree.Subitem2):
+    pass
 
-class Subitem2(Item):
-    PARENT_CANDIDATES = (Subitem1,)
+class Subitem2Sentence(XMLExpansion, jstatutree.Subitem2Sentence):
+    pass
 
-class Subitem2Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem1,)
+class Subitem3(XMLExpansion, jstatutree.Subitem3):
+    pass
 
-class Subitem3(Item):
-    PARENT_CANDIDATES = (Subitem2,)
+class Subitem3Sentence(XMLExpansion, jstatutree.Subitem3Sentence):
+    pass
 
-class Subitem3Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem2,)
+class Subitem4(XMLExpansion, jstatutree.Subitem4):
+    pass
 
-class Subitem4(Item):
-    PARENT_CANDIDATES = (Subitem3,)
+class Subitem4Sentence(XMLExpansion, jstatutree.Subitem4Sentence):
+    pass
 
-class Subitem4Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem3,)
+class Subitem5(XMLExpansion, jstatutree.Subitem5):
+    pass
 
-class Subitem5(Item):
-    PARENT_CANDIDATES = (Subitem4,)
+class Subitem5Sentence(XMLExpansion, jstatutree.Subitem5Sentence):
+    pass
 
-class Subitem5Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem4,)
+class Sentence(XMLExpansion, jstatutree.Sentence):
+    pass
