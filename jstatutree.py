@@ -1,23 +1,44 @@
+from abc import abstractmethod
+import inspect
+from decimal import Decimal
+import re
+
 class SourceInterface(object):
+    @abstractmethod
     def open(self):
-        pass`1
+        pass
+
+    @abstractmethod
+    def close(self):
+        pass
+
+    @abstractmethod
+    def get_tree(self):
+        pass
+
+    @abstractmethod
+    def get_lawdata(self):
+        pass
+
+def get_classes(module):
+    return set(map(lambda x:x[1],inspect.getmembers(module,inspect.isclass)))
 
 # 法令文書を扱うためのTree
 class JpnStatuTree(object):
     def __init__(self, source):
         self.source = source
+        self.source.open()
+        self.lawdata = self.source.get_lawdata()
+        self.source.close()
+
+    def get_tree(self):
+        return self.source.get_tree()
 
     def __str__(self):
-        return "{name} ({num})".format(name=self.name, num=self.num)
+        return "{name} ({num})".format(name=self.lawdata.name, num=self.lawdata.num)
 
     def is_reiki(self):
-        return True if re.search("(?:条例|規則)", self.lawnum) else False
-
-    def count_elems(self, error_ok=False):
-        c = Counter()
-        for ce in self.root.iter_descendants(error_ok=error_ok):
-                c.update({ce.__class__.__name__: 1})
-        return c
+        return True if re.search("(?:条例|規則)", self.lawdata.lawnum) else False
 
 class LawData(object):
     def __init__(self):
@@ -30,39 +51,70 @@ class LawData(object):
 
     @name.setter
     def name(self, name):
-        return self._name = name
+        self._name = name
 
     @property
     def lawnum(self):
-        return "UNK" if self._num is None else self._num
+        return "UNK" if self._lawnum is None else self._lawnum
 
     @lawnum.setter
     def lawnum(self, lawnum):
-        return self._lawnum = lawnum
+        self._lawnum = lawnum
 
 # 例規のメタデータ
-class ReikiData(object):
+class ReikiData(LawData):
     def __init__(self):
         super().__init__()
-        self._code = None
-        self._id = None
-        self.prefecture_code = 0
-        self.municipality_code = 0
-        self.file_code = 0
+        self._code = "00/000000/0000"
+        self._id = 0
+        self._prefecture_code = "00"
+        self._municipality_code = "000000"
+        self._file_code = "0000"
+
+    @property
+    def prefecture_code(self):
+        return self._prefecture_code
+
+    @prefecture_code.setter
+    def prefecture_code(self, val):
+        assert isinstance(val, (str, int)), "invalid prefecture_code" + str(val)
+        assert 0 < int(val) <= 47, "invalid prefecture_code" + str(val)
+        self._prefecture_code = "{0:02}".format(int(val))
+
+    @property
+    def municipality_code(self):
+        return self._municipality_code
+
+    @municipality_code.setter
+    def municipality_code(self, val):
+        assert isinstance(val, (str, int)), "invalid municipality_code" + str(val)
+        assert 10000 <= int(val) < 480000, "invalid municipality_code" + str(val)
+        self._municipality_code = "{0:06}".format(int(val))
+
+    @property
+    def file_code(self):
+        return self._file_code
+
+    @file_code.setter
+    def file_code(self, val):
+        assert isinstance(val, (str, int)), "invalid file_code" + str(val)
+        assert 0 <= int(val) < 10000, "invalid file_code" + str(val)
+        self._file_code = "{0:04}".format(int(val))
+
 
     @property
     def code(self):
-        if self._code is None:
-            self._code = "{0:02}/{1:06}/{2:04}".format(
-                int(self.prefecture_code), 
-                int(self.municipality_code), 
-                int(self.file_code)
+        if self._code == "00/000000/0000":
+            self._code = "/".join(
+                [self.prefecture_code, 
+                self.municipality_code, 
+                self.file_code]
                 )
         return self._code
 
     @property
     def id(self):
-        if self._id is None:
+        if self._id is 0:
             self._id = int(self.municipality_code) * 10000 + int(self.file_code)
         return self._id
 
@@ -159,10 +211,6 @@ class TreeElement(object):
     def _read_text(self):
         pass
 
-    @abstractmethod
-    def _read_metadata(self):
-
-
     # 子要素を探索
     # 継承先でこのメソッドを書き換えるのは非推奨
     def _find_children(self):
@@ -195,11 +243,10 @@ class TreeElement(object):
 
 class ElementNumber(object):
     def __init__(self, arg):
-        self.etype = etype
         if isinstance(arg, int):
             self.num = Decimal(arg)     
-        if isinstance(arg, str):
-            self.num = process_branch_num_str(arg)
+        elif isinstance(arg, str):
+            self.num = self.str_to_decimal(arg)
         elif isinstance(arg, (Decimal,)):
             self.num = arg
         elif isinstance(arg, (ElementNumber,)):
@@ -233,107 +280,3 @@ class ElementNumber(object):
             num += Decimal(n) * mul
             mul /= Decimal(1000)
         return num
-
-class Law(TreeElement):
-    PARENT_CANDIDATES = ()
-
-class LawBody(TreeElement):
-    PARENT_CANDIDATES = (Law,)
-
-class MainProvision(TreeElement):
-    PARENT_CANDIDATES = (LawBody,)
-
-class Part(TreeElement):
-    PARENT_CANDIDATES = (MainProvision,)
-    JNAME = "第{num}編"
-
-class Chapter(TreeElement):
-    PARENT_CANDIDATES = (MainProvision, Part)
-    JNAME = "第{num}章"
-
-class Section(TreeElement):
-    PARENT_CANDIDATES = (Chapter,)
-    JNAME = "第{num}節"
-
-class Subsection(TreeElement):
-    PARENT_CANDIDATES = (Section,)
-    JNAME = "第{num}款"
-
-class Division(TreeElement):
-    PARENT_CANDIDATES = (Subsection,)
-    JNAME = "第{num}目"
-
-class Article(TreeElement):
-    PARENT_CANDIDATES = (MainProvision, Part, Chapter, Section, Subsection, Division)
-    JNAME = "第{num}条{branch}"
-
-class ArticleCaption(TreeElement):
-    PARENT_CANDIDATES = (Article,)
-    JNAME = "条見出し"
-
-class Paragraph(TreeElement):
-    PARENT_CANDIDATES = (MainProvision, Article)
-    JNAME = "第{num}項"
-
-class ParagraphSentence(TreeElement):
-    PARENT_CANDIDATES = (Paragraph,)
-    JNAME = "第{num}文"
-
-class ParagraphCaption(TreeElement):
-    PARENT_CANDIDATES = (Paragraph,)
-    JNAME = "項見出し"
-
-class Item(TreeElement):
-    PARENT_CANDIDATES = (Article, Paragraph)
-    JNAME = "第{num}号{branch}"
-
-class ItemSentence(TreeElement):
-    PARENT_CANDIDATES = (Item,)
-
-class Subitem1(TreeElement):
-    PARENT_CANDIDATES = (Item,)
-    JNAME = "{num}号細分{branch}"
-
-class Subitem1Sentence(TreeElement):
-    PARENT_CANDIDATES = (Item,)
-
-class Subitem2(TreeElement):
-    PARENT_CANDIDATES = (Subitem1,)
-    JNAME = "{num}号細々分{branch}"
-
-class Subitem2Sentence(TreeElement):
-    PARENT_CANDIDATES = (Subitem1,)
-
-class Subitem3(TreeElement):
-    PARENT_CANDIDATES = (Subitem2,)
-    JNAME = "{num}号細々々分{branch}"
-
-class Subitem3Sentence(TreeElement):
-    PARENT_CANDIDATES = (Subitem2,)
-
-class Subitem4(TreeElement):
-    PARENT_CANDIDATES = (Subitem3,)
-    JNAME = "{num}号細々々々分{branch}"
-
-class Subitem4Sentence(TreeElement):
-    PARENT_CANDIDATES = (Subitem3,)
-
-class Subitem5(TreeElement):
-    PARENT_CANDIDATES = (Subitem4,)
-    JNAME = "{num}号細々々々々分{branch}"
-
-class Subitem5Sentence(TreeElement):
-    PARENT_CANDIDATES = (Subitem4,)
-
-class Sentence(TreeElement):
-    PARENT_CANDIDATES = (
-        ParagraphSentence, 
-        ItemSentence, 
-        Subitem1Sentence, 
-        Subitem2Sentence, 
-        Subitem3Sentence, 
-        Subitem4Sentence, 
-        Subitem5Sentence
-        )
-    JNAME = "第{num}文"
-

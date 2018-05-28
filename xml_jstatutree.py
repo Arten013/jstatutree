@@ -1,3 +1,4 @@
+from jstatutree import SourceInterface
 
 def get_text(b, e_val):
     if b is not None and len(b.text) > 0:
@@ -5,19 +6,24 @@ def get_text(b, e_val):
     else:
         return e_val
 
-class ReikiXMLReader(object):
+class ReikiXMLReader(SourceInterface):
     def __init__(self, path):
         self.path = os.path.abspath(path)
         self.file = None
 
     def open(self):
-        root_etree = ET.parse(self.path).getroot()
-        root = Law(None)
-        root.inheritance(root_etree)
-        root.lawdata = self._get_lawdata(root_etree)
+        self.root_etree = ET.parse(self.path).getroot()
+
+    def close(self):
+        self.root_etree = None
+
+    def get_tree(self, tree_base):
+        root = Law(tree_base)
+        root.inheritance(self.root_etree)
+        root.lawdata = self.get_lawdata()
         return root
 
-    def _get_lawdata(self, root_etree):
+    def get_lawdata(self):
         lawdata = ReikiData()
 
         # reikicodeの設定
@@ -27,10 +33,10 @@ class ReikiXMLReader(object):
         _, lawdata.prefecture_code = os.path.split(p)
 
         # nameの設定
-        lawdata.name = get_text(self.root.find('Law/LawBody/LawTitle'), None)
+        lawdata.name = get_text(self.root_etree.find('Law/LawBody/LawTitle'), None)
 
         # lawnumの設定
-        lawnum_text = get_text(self.root.find('Law/LawNum'), "")
+        lawnum_text = get_text(self.root_etree.find('Law/LawNum'), "")
         lawnum_text = kan_ara(unicodedata.normalize("NFKC", lawnum_text))
         lawdata.lawnum = None if len(lawnum_text) == 0 else lawnum_text
 
@@ -60,81 +66,3 @@ class XMLExpansion(object):
 
     def _read_text(self):
         return get_text(self.root, "")
-
-class Law(XMLExpansion, jstatutree.Law):
-    pass
-
-class LawBody(XMLExpansion, jstatutree.LawBody):
-    pass
-
-class MainProvision(XMLExpansion, jstatutree.MainProvision):
-    pass
-
-class Part(XMLExpansion, jstatutree.Part):
-    pass
-
-class Chapter(XMLExpansion, jstatutree.Chapter):
-    pass
-
-class Section(XMLExpansion, jstatutree.Section):
-    pass
-
-class Subsection(XMLExpansion, jstatutree.Subsection):
-    pass
-
-class Division(XMLExpansion, jstatutree.Division):
-    pass
-
-class Article(XMLExpansion, jstatutree.Article):
-    pass
-
-class ArticleCaption(XMLExpansion, jstatutree.ArticleCaption):
-    pass
-
-class Paragraph(XMLExpansion, jstatutree.Paragraph):
-    pass
-
-class ParagraphSentence(XMLExpansion, jstatutree.ParagraphSentence):
-    pass
-
-class ParagraphCaption(XMLExpansion, jstatutree.ParagraphCaption):
-    pass
-
-class Item(XMLExpansion, jstatutree.Item):
-    pass
-
-class ItemSentence(XMLExpansion, jstatutree.ItemSentence):
-    pass
-
-class Subitem1(XMLExpansion, jstatutree.Subitem1):
-    pass
-
-class Subitem1Sentence(XMLExpansion, jstatutree.Subitem1Sentence):
-    pass
-
-class Subitem2(XMLExpansion, jstatutree.Subitem2):
-    pass
-
-class Subitem2Sentence(XMLExpansion, jstatutree.Subitem2Sentence):
-    pass
-
-class Subitem3(XMLExpansion, jstatutree.Subitem3):
-    pass
-
-class Subitem3Sentence(XMLExpansion, jstatutree.Subitem3Sentence):
-    pass
-
-class Subitem4(XMLExpansion, jstatutree.Subitem4):
-    pass
-
-class Subitem4Sentence(XMLExpansion, jstatutree.Subitem4Sentence):
-    pass
-
-class Subitem5(XMLExpansion, jstatutree.Subitem5):
-    pass
-
-class Subitem5Sentence(XMLExpansion, jstatutree.Subitem5Sentence):
-    pass
-
-class Sentence(XMLExpansion, jstatutree.Sentence):
-    pass
