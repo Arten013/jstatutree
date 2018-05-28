@@ -117,10 +117,17 @@ class TreeElement(object):
     # "第n条", "条見出し"のような要素名
     @property
     def name(self):
-        if self.num == 0:
-            return JNAME
+        if "branch" in self.JNAME:
+            return JNAME.format(
+                num=int(self.num.main_num),
+                branch="の".join(map(lambda x: int(x), self.num.branch_nums))
+            )
+        elif "num" in self.JNAME:
+            return JNAME.format(
+                num=int(self.num.main_num)
+            )
         else:
-            return JNAME.format(num=self.num)
+            return self.JNAME
 
     @property
     def lawdata(self):
@@ -203,15 +210,19 @@ class ElementNumber(object):
     def __float__(self):
         return float(self.num)
 
-    def __str__(self):
-        if self._str is not None
-            self._str = str(self.num.quantize(Decimal('1')))
-            num = self.num - self.num.quantize(Decimal('1'))
-            while num.quantize(Decimal('1')) != Decimal(0):
-                self.num *= 100
-                self._str += "の"+str(num.quantize(Decimal('1')))
-                num = num - num.quantize(Decimal('1'))
-        return self._str
+    @property
+    def main_num(self):
+        return self.num.quantize(Decimal('1'))
+
+    @property
+    def branch_nums(self):
+        branch_nums = []
+        num = self.num - self.main_num
+        while num.quantize(Decimal('1')) != Decimal(0):
+            num *= 100
+            branch_nums += [num.quantize(Decimal('1'))]
+            num = num - num.quantize(Decimal('1'))
+        return branch_nums
 
     def str_to_decimal(self, strnum):
         if re.match("^[0-9]+(?:_[0-9]+)*$", strnum) is None:
@@ -225,85 +236,104 @@ class ElementNumber(object):
 
 class Law(TreeElement):
     PARENT_CANDIDATES = ()
-    JNAME = ""
 
 class LawBody(TreeElement):
-    PARENT_CANDIDATES = ("Law")
-    JNAME = ""
+    PARENT_CANDIDATES = (Law,)
 
-class MainProvision(ProvBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = ("")
-    JNAME = ""
+class MainProvision(TreeElement):
+    PARENT_CANDIDATES = (LawBody,)
 
-class Part(SuperordinateElementBase, ETreeLawElementBase):
+class Part(TreeElement):
     PARENT_CANDIDATES = (MainProvision,)
+    JNAME = "第{num}編"
 
-class Chapter(SuperordinateElementBase, ETreeLawElementBase):
+class Chapter(TreeElement):
     PARENT_CANDIDATES = (MainProvision, Part)
+    JNAME = "第{num}章"
 
-class Section(SuperordinateElementBase, ETreeLawElementBase):
+class Section(TreeElement):
     PARENT_CANDIDATES = (Chapter,)
+    JNAME = "第{num}節"
 
-class Subsection(SuperordinateElementBase, ETreeLawElementBase):
+class Subsection(TreeElement):
     PARENT_CANDIDATES = (Section,)
+    JNAME = "第{num}款"
 
-class Division(SuperordinateElementBase, ETreeLawElementBase):
+class Division(TreeElement):
     PARENT_CANDIDATES = (Subsection,)
+    JNAME = "第{num}目"
 
-class Article(BasicElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (MainProvision, SupplProvision, Part, Chapter, Section, Subsection, Division)
+class Article(TreeElement):
+    PARENT_CANDIDATES = (MainProvision, Part, Chapter, Section, Subsection, Division)
+    JNAME = "第{num}条{branch}"
 
-class ETreeSentenceBase(SentenceBase, ETreeLawElementBase):
-    def inheritance(self, root):
-        self.root = root
-        super().inheritance()
-
-    def extract_text(self):
-        return list(get_text(s, "") for s in self.root.findall('./Sentence'.format(self.__class__.__name__)))
-
-class ArticleCaption(CaptionBase, ETreeSentenceBase):
+class ArticleCaption(TreeElement):
     PARENT_CANDIDATES = (Article,)
-    def extract_text(self):
-        return [get_text(self.root, '')]
+    JNAME = "条見出し"
 
-class Paragraph(BasicElementBase, ETreeLawElementBase):
-    PARENT_CANDIDATES = (MainProvision, SupplProvision, Article)
+class Paragraph(TreeElement):
+    PARENT_CANDIDATES = (MainProvision, Article)
+    JNAME = "第{num}項"
 
-class ParagraphSentence(ETreeSentenceBase):
+class ParagraphSentence(TreeElement):
     PARENT_CANDIDATES = (Paragraph,)
+    JNAME = "第{num}文"
 
-class Item(ItemBase, ETreeLawElementBase):
+class ParagraphCaption(TreeElement):
+    PARENT_CANDIDATES = (Paragraph,)
+    JNAME = "項見出し"
+
+class Item(TreeElement):
     PARENT_CANDIDATES = (Article, Paragraph)
+    JNAME = "第{num}号{branch}"
 
-class ItemSentence(ETreeSentenceBase):
+class ItemSentence(TreeElement):
     PARENT_CANDIDATES = (Item,)
 
-class Subitem1(Item):
+class Subitem1(TreeElement):
+    PARENT_CANDIDATES = (Item,)
+    JNAME = "{num}号細分{branch}"
+
+class Subitem1Sentence(TreeElement):
     PARENT_CANDIDATES = (Item,)
 
-class Subitem1Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Item,)
+class Subitem2(TreeElement):
+    PARENT_CANDIDATES = (Subitem1,)
+    JNAME = "{num}号細々分{branch}"
 
-class Subitem2(Item):
+class Subitem2Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem1,)
 
-class Subitem2Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem1,)
+class Subitem3(TreeElement):
+    PARENT_CANDIDATES = (Subitem2,)
+    JNAME = "{num}号細々々分{branch}"
 
-class Subitem3(Item):
+class Subitem3Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem2,)
 
-class Subitem3Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem2,)
+class Subitem4(TreeElement):
+    PARENT_CANDIDATES = (Subitem3,)
+    JNAME = "{num}号細々々々分{branch}"
 
-class Subitem4(Item):
+class Subitem4Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem3,)
 
-class Subitem4Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem3,)
+class Subitem5(TreeElement):
+    PARENT_CANDIDATES = (Subitem4,)
+    JNAME = "{num}号細々々々々分{branch}"
 
-class Subitem5(Item):
+class Subitem5Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem4,)
 
-class Subitem5Sentence(ItemSentence):
-    PARENT_CANDIDATES = (Subitem4,)
+class Sentence(TreeElement):
+    PARENT_CANDIDATES = (
+        ParagraphSentence, 
+        ItemSentence, 
+        Subitem1Sentence, 
+        Subitem2Sentence, 
+        Subitem3Sentence, 
+        Subitem4Sentence, 
+        Subitem5Sentence
+        )
+    JNAME = "第{num}文"
+
