@@ -2,6 +2,8 @@ from abc import abstractmethod
 import inspect
 from decimal import Decimal
 import re
+from myexceptions import LawElementNumberError, HieralchyError
+import unicodedata
 
 class SourceInterface(object):
     @abstractmethod
@@ -20,8 +22,20 @@ class SourceInterface(object):
     def get_lawdata(self):
         pass
 
-def get_classes(module):
-    return set(map(lambda x:x[1],inspect.getmembers(module,inspect.isclass)))
+def get_etypes(module):
+    etypes = []
+    root = None
+    for i in inspect.getmembers(module, inspect.isclass):
+        etype_name, etype_cls = i[:2]
+        if not hasattr(etype_cls, "etype") or "Expansion" in etype_name:
+            continue
+        if etype_cls.is_root():
+            assert root is None, "root elem has to be unique."
+            root = etype_cls
+        else:
+            etypes.append(etype_cls)
+    assert root is not None, "No root has been defined."+str(etypes)
+    return [root] + etypes
 
 # 法令文書を扱うためのTree
 class JpnStatuTree(object):
@@ -126,8 +140,7 @@ class TreeElement(object):
 
     def __init__(self, parent=None):
         self.parent = parent
-        self._lawdata = None
-        self._num
+        self._num = None
         self._children = None
         self._text = None
 
@@ -137,14 +150,14 @@ class TreeElement(object):
         if not isinstance(parent, cls.PARENT_CANDIDATES):
             raise HieralchyError(
                 parent.lawdata,
-                "invalid hieralchy "+parent.etype + " -> " + cls.__name__
+                "invalid hieralchy "+parent.etype.__name__ + " -> " + cls.__name__
             )
         child = cls(parent)
         return child
 
     # "X法第n条第m項"のように出力
     def __str__(self):
-        return str(self.parent)+str(self.num)
+        return str(self.parent)+str(self.name)
 
     # 呼び出し時に読み出す(children, name, text)
     @property
@@ -170,12 +183,12 @@ class TreeElement(object):
     @property
     def name(self):
         if "branch" in self.JNAME:
-            return JNAME.format(
+            return self.JNAME.format(
                 num=int(self.num.main_num),
                 branch="の".join(map(lambda x: int(x), self.num.branch_nums))
             )
         elif "num" in self.JNAME:
-            return JNAME.format(
+            return self.JNAME.format(
                 num=int(self.num.main_num)
             )
         else:
@@ -183,9 +196,7 @@ class TreeElement(object):
 
     @property
     def lawdata(self):
-        if self._lawdata is not None:
-            return self.parent.lawdata
-        return self._lawdata
+        return self.parent.lawdata
 
     @lawdata.setter
     def lawdata(self, lawdata):
@@ -197,11 +208,11 @@ class TreeElement(object):
         return self.__class__
 
     @classmethod
-    def preprocess_str(self, str):
-        return unicodedata.normalize("NFKC", s)
+    def preprocess_str(self, s):
+        return unicodedata.normalize("NFKC", s).strip()
 
     def _read_num(self):
-        return LawElementNumber(self.etype, "0")
+        return LawElementNumber("1")
 
     @abstractmethod
     def _read_children_list(self):
@@ -214,15 +225,16 @@ class TreeElement(object):
     # 子要素を探索
     # 継承先でこのメソッドを書き換えるのは非推奨
     def _find_children(self):
-        children= dict
+        children = dict()
         for child in self._read_children_list():
             # 要素の重複がないかチェック
-            if children.name in children.keys():
+            #print(child, child.etype.__name__)
+            if child in children.values():
                 raise HieralchyError(
                     self.lawdata,
-                    "element number duplication: {0}".format(str(child))
+                    "element number duplication: {0} in {1}".format(str(child), str(list(map(lambda x: str(x), children.values()))))
                 )
-            children[name] = child
+            children[child.name] = child
         """
         # 兄弟関係が不正でないかチェック
         etypes = set(map(lambda x: x.etype, children))
@@ -240,6 +252,98 @@ class TreeElement(object):
 
     def has_text(self):
         return len(self.texts) == 0
+
+    @classmethod
+    def is_root(cls):
+        return False
+
+    def depth_first_iteration(self, unit_type=None):
+        yield self
+        for child in sorted(self.children.values()):
+            yield from child.depth_first_iteration(unit_type=unit_type)
+
+    def iter_all_texts(self):
+        for child in self.depth_first_iteration():
+            yield child.text
+
+    def _comparable_check(self, elem):
+        #assert elem.__class__ in ((self.etype,) + self.BROTHER_CANDIDATES), "cannot compare {} and {}".format(self.etype, elem.__class__)
+        assert hasattr(self, "num"), "cannot compare elements without element number "+str(self)
+        assert hasattr(elem, "num"), "cannot compare elements without element number "+str(elem)
+
+    def __eq__(self, elem):
+        if id(self) == id(elem):
+            return True
+        self._comparable_check(elem)
+        if self.etype != elem.etype:
+            return False
+        if self.num.num != elem.num.num:
+            return False
+        return self.parent == elem.parent
+
+    def __ne__(self, elem):
+        return not self == elem
+
+    def _lt_core(self, elem):
+        if self.etype == elem.etype:
+            return self.num.num < elem.num.num
+        raise HieralchyError(
+            self.lawdata,
+            "Unexpected element occured in the same layer "+str(self.etype)+" "+str(elem.etype)
+            )
+    def __lt__(self, elem):
+        self._comparable_check(elem)
+        if self.parent == elem.parent:
+            return self._lt_core(elem)
+        if self.parent < elem.parent:
+            return True
+        elif self.parent >= elem.parent:
+            return False
+        raise Exception("Unexpected error in __lt__")
+
+    def __le__(self, elem):
+        if self == elem:
+            return True
+        return self < elem
+
+    def __gt__(etype):
+        return not self <= elem
+
+    def __ge__(etype):
+        return not self < elem
+
+class RootExpansion(object):
+    def __init__(self, lawdata):
+        self.parent = None
+        self._lawdata = lawdata
+        self._num = None
+        self._children = None
+        self._text = None
+
+    # 親から子を生成する場合は__init__を直接呼ばずにこちらで初期化する
+    @classmethod
+    def inheritance(cls, parent):
+        raise Exception("You cannot call inheritance by root class "+str(cls.__name__))
+
+    @property
+    def lawdata(self):
+        return self._lawdata
+
+    @lawdata.setter
+    def lawdata(self, lawdata):
+        assert issubclass(lawdata.__class__, LawData), "Lawdata must be supplied as a subclass of LawData."
+        self._lawdata = lawdata 
+
+    @classmethod
+    def is_root(cls):
+        return True
+
+    def __str__(self):
+        return self.lawdata.name+self.name
+
+
+
+
 
 class ElementNumber(object):
     def __init__(self, arg):
@@ -272,6 +376,8 @@ class ElementNumber(object):
         return branch_nums
 
     def str_to_decimal(self, strnum):
+        if strnum == "":
+            return Decimal(1)
         if re.match("^[0-9]+(?:_[0-9]+)*$", strnum) is None:
             raise LawElementNumberError(error_detail="Invalid Format {}".format(strnum))
         num = Decimal(0)

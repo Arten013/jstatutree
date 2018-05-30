@@ -1,5 +1,37 @@
 import etype_class
-from xml_jstatutree import XMLExpansion
+from jstatutree import ElementNumber
+from myexceptions import LawElementNumberError
+
+def get_text(b, e_val):
+    if b is not None and len(b.text) > 0:
+        return b.text
+    else:
+        return e_val
+
+class XMLExpansion(object):
+    @classmethod
+    def inheritance(cls, parent, root):
+        child = super(XMLExpansion, cls).inheritance(parent)
+        child.root = root
+        return child
+
+    def _read_children_list(self):
+        for f in list(self.root):
+            if f.tag not in globals():
+                continue
+            yield globals()[f.tag].inheritance(self, f)
+
+    def _read_num(self):
+        numstr = self.root.attrib.get('Num', None)
+        if numstr is None:
+            return ElementNumber(1)
+        try:
+            return ElementNumber(numstr)
+        except LawElementNumberError as e:
+            raise LawElementNumberError(self.lawdata, **e.__dict__)
+
+    def _read_text(self):
+        return get_text(self.root, "")
 
 class Law(XMLExpansion, etype_class.Law):
     pass

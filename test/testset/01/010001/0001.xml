@@ -7,7 +7,7 @@
 		<EnactStatement>公布文</EnactStatement>
 		<MainProvision>
 			<Article Num="1">
-				<ArticleCaption> (第一条 条見出し）</ArticleCaption>
+				<ArticleCaption>（第一条 条見出し）</ArticleCaption>
 				<ArticleTitle>第一条</ArticleTitle>
 				<Paragraph Num="1">
 					<ParagraphNum />
@@ -31,6 +31,33 @@
 						<Sentence Num="1" Function="Main">第二項本文</Sentence>
 						<Sentence Num="2" Function="Proviso">第二項但し書き</Sentence>
 					</ParagraphSentence>
+				</Paragraph>
+				<Paragraph Num="3">
+					<ParagraphNum />
+					<ParagraphSentence>
+						<Sentence> 第三項柱書き </Sentence>
+					</ParagraphSentence>
+					<Item Num="1">
+						<ItemSentence>
+							<Sentence Num="1"> 第一号第一文 </Sentence>		
+							<Sentence Num="2"> 第一号第二文 </Sentence>
+						</ItemSentence>
+					</Item>
+					<Item Num="2">
+						<ItemSentence>
+							<Sentence> 第二号柱書き </Sentence>
+						</ItemSentence>	
+						<Subitem1 Num="1">
+							<Subitem1Sentence>
+								<Sentence> 第一号柱書き </Sentence>
+							</Subitem1Sentence>
+							<Subitem2 Num="1">
+								<Subitem2Sentence>
+									<Sentence> 第一号柱書き </Sentence>
+								</Subitem2Sentence>
+							</Subitem2>
+						</Subitem1>
+					</Item>
 				</Paragraph>
 			</Article>
 		</MainProvision>
