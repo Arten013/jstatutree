@@ -3,28 +3,42 @@ from jstatutree import ElementNumber
 from myexceptions import LawElementNumberError
 
 def get_text(b, e_val):
-    if b is not None and len(b.text) > 0:
+    if b is not None and b.text is not None and len(b.text) > 0:
         return b.text
     else:
         return e_val
 
 class XMLExpansion(object):
     @classmethod
-    def inheritance(cls, parent, root):
+    def inheritance(cls, parent, root, auto_index):
         child = super(XMLExpansion, cls).inheritance(parent)
         child.root = root
+        child.num = ElementNumber(auto_index)
         return child
 
     def _read_children_list(self):
+        auto_index = dict()
         for f in list(self.root):
             if f.tag not in globals():
                 continue
-            yield globals()[f.tag].inheritance(self, f)
+            auto_index[f.tag] = auto_index.get(f.tag, 0) + 1
+            yield globals()[f.tag].inheritance(self, f, auto_index[f.tag])
+
+    @property
+    def num(self):
+        return super().num
+
+    @num.setter
+    def num(self, auto_index):
+        if self._num is None:
+            self._num = self._read_num()
+            if self._num is None:
+                self._num = auto_index
 
     def _read_num(self):
         numstr = self.root.attrib.get('Num', None)
         if numstr is None:
-            return ElementNumber(1)
+            return None
         try:
             return ElementNumber(numstr)
         except LawElementNumberError as e:

@@ -75,6 +75,10 @@ class LawData(object):
     def lawnum(self, lawnum):
         self._lawnum = lawnum
 
+    def is_reiki(self):
+        return True if re.search("(?:条例|規則)", self.lawnum) else False
+
+
 # 例規のメタデータ
 class ReikiData(LawData):
     def __init__(self):
@@ -257,14 +261,16 @@ class TreeElement(object):
     def is_root(cls):
         return False
 
-    def depth_first_iteration(self, unit_type=None):
+    def depth_first_iteration(self, target=None):
         yield self
-        for child in sorted(self.children.values()):
-            yield from child.depth_first_iteration(unit_type=unit_type)
+        if target != self.etype.__name__:
+            for child in sorted(self.children.values()):
+                yield from child.depth_first_iteration(target)
 
-    def iter_all_texts(self):
+    def iter_sentences(self):
         for child in self.depth_first_iteration():
-            yield child.text
+            if child.etype.__name__ == "Sentence":
+                yield child.text
 
     def _comparable_check(self, elem):
         #assert elem.__class__ in ((self.etype,) + self.BROTHER_CANDIDATES), "cannot compare {} and {}".format(self.etype, elem.__class__)

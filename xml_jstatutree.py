@@ -2,11 +2,12 @@ from jstatutree import SourceInterface, get_etypes, ReikiData, LawData
 import xml_etype_class as etype
 import os
 import unicodedata
+import re
 
 import xml.etree.ElementTree as ET
 
 def get_text(b, e_val):
-    if b is not None and len(b.text) > 0:
+    if b is not None and b.text is not None and len(b.text) > 0:
         return b.text
     else:
         return e_val
