@@ -28,15 +28,16 @@ class ReikiXMLReader(SourceInterface):
     def close(self):
         self.root_etree = None
 
+    def is_closed():
+        return self.root_etree is None
+
     def get_tree(self):
-        self.open()
-        root = ETYPES[0](self.get_lawdata())
+        root = ETYPES[0](self.get_lawdata() if self.lawdata is None else self.lawdata)
         root.root = self.root_etree.find("./Law")
-        self.close()
         return root
 
     def get_lawdata(self):
-        lawdata = ReikiData()
+        self.lawdata = ReikiData()
 
         # reikicodeの設定
         p, file = os.path.split(self.path)
@@ -52,4 +53,4 @@ class ReikiXMLReader(SourceInterface):
         lawnum_text = unicodedata.normalize("NFKC", lawnum_text)
         lawdata.lawnum = None if len(lawnum_text) == 0 else lawnum_text
 
-        return lawdata
+        return self.lawdata
