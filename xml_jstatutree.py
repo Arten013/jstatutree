@@ -23,7 +23,11 @@ class ReikiXMLReader(SourceInterface):
     def open(self):
         with open(self.path) as f:
             s = f.read()
-        self.root_etree = ET.fromstring(s)
+        try:
+            self.root_etree = ET.fromstring(s)
+        except Exception as e:
+            print(e)
+            print("Parse error")
 
     def close(self):
         self.root_etree = None
