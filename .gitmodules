@@ -1,0 +1,3 @@
+[submodule "xml_jstatutree"]
+	path = xml_jstatutree
+	url = https://github.com/Arten013/xml_jstatutree.git

@@ -4,28 +4,21 @@ sys.path.append(
     )
 from jstatute_dict import JStatuteDict
 import unittest
-import xml_jstatutree as jstatutree
+import jstatutree
 
 class LawDataTestCase(unittest.TestCase):
-    def setUp(self):
-        self.rr = jstatutree.ReikiXMLReader(
-            os.path.join(
-                os.path.dirname(__file__), "testset", "01/010001/0001.xml"
-                )
-            )
-        self.rr.open()
-
     def setgetitem_testunit(self, assert_if, lawnum, only_reiki):
         jsdict = JStatuteDict(only_reiki=only_reiki)
-        self.rr.lawdata._lawnum = lawnum
+        statute = jstatutree.SourceInterface()
+        statute._lawdata = jstatutree.LawData()
+        statute.lawdata._lawnum = lawnum
         if assert_if == "skip":
-            jsdict[self.rr.lawdata] = self.rr
+            jsdict[statute.lawdata] = statute
             self.assertTrue(len(jsdict) == 0)
         elif assert_if == "success":
-            jsdict[self.rr.lawdata] = self.rr
+            jsdict[statute.lawdata] = statute
             self.assertTrue(len(jsdict) == 1)
-            self.assertTrue(jsdict[self.rr.lawdata] == self.rr)
-        self.rr._lawdata = self.rr.read_lawdata()
+            self.assertTrue(jsdict[statute.lawdata] == statute)
 
     def test_setgetitem(self):
         self.setgetitem_testunit("success", "XX条例", True)

@@ -6,6 +6,17 @@ from myexceptions import LawElementNumberError, HieralchyError
 import unicodedata
 
 class SourceInterface(object):
+    @property
+    def lawdata(self):
+        if "_lawdata" not in self.__dict__ or self._lawdata is None:
+            if self.is_closed():
+                self.open()
+                self._lawdata = self.read_lawdata()
+                self.close()
+            else:
+                self._lawdata = self.read_lawdata()
+        return self._lawdata     
+
     @abstractmethod
     def open(self):
         pass
