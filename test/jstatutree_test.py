@@ -8,7 +8,7 @@ from decimal import Decimal
 
 class GetClassesTestCase(unittest.TestCase):
     def test_get_classes(self):
-        import dummy_etype_class as test_module
+        import dummy_etypes as test_module
         classes = get_etypes(test_module)
         self.assertEqual(classes[0], test_module.Law)
         classes = sorted(classes, key=lambda x: x.__name__)

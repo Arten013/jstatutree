@@ -1,5 +1,5 @@
 from jstatutree import SourceInterface, get_etypes, ReikiData, LawData
-import xml_etype_class as etype
+import xml_etypes as etype
 import os
 import unicodedata
 import re

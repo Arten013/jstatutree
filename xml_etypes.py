@@ -1,4 +1,4 @@
-import etype_class
+import etypes
 from jstatutree import ElementNumber
 from myexceptions import LawElementNumberError
 
@@ -47,80 +47,80 @@ class XMLExpansion(object):
     def _read_text(self):
         return get_text(self.root, "")
 
-class Law(XMLExpansion, etype_class.Law):
+class Law(XMLExpansion, etypes.Law):
     pass
 
-class LawBody(XMLExpansion, etype_class.LawBody):
+class LawBody(XMLExpansion, etypes.LawBody):
     pass
 
-class MainProvision(XMLExpansion, etype_class.MainProvision):
+class MainProvision(XMLExpansion, etypes.MainProvision):
     pass
 
-class Part(XMLExpansion, etype_class.Part):
+class Part(XMLExpansion, etypes.Part):
     pass
 
-class Chapter(XMLExpansion, etype_class.Chapter):
+class Chapter(XMLExpansion, etypes.Chapter):
     pass
 
-class Section(XMLExpansion, etype_class.Section):
+class Section(XMLExpansion, etypes.Section):
     pass
 
-class Subsection(XMLExpansion, etype_class.Subsection):
+class Subsection(XMLExpansion, etypes.Subsection):
     pass
 
-class Division(XMLExpansion, etype_class.Division):
+class Division(XMLExpansion, etypes.Division):
     pass
 
-class Article(XMLExpansion, etype_class.Article):
+class Article(XMLExpansion, etypes.Article):
     pass
 
-class ArticleCaption(XMLExpansion, etype_class.ArticleCaption):
+class ArticleCaption(XMLExpansion, etypes.ArticleCaption):
     pass
 
-class Paragraph(XMLExpansion, etype_class.Paragraph):
+class Paragraph(XMLExpansion, etypes.Paragraph):
     pass
 
-class ParagraphSentence(XMLExpansion, etype_class.ParagraphSentence):
+class ParagraphSentence(XMLExpansion, etypes.ParagraphSentence):
     pass
 
-class ParagraphCaption(XMLExpansion, etype_class.ParagraphCaption):
+class ParagraphCaption(XMLExpansion, etypes.ParagraphCaption):
     pass
 
-class Item(XMLExpansion, etype_class.Item):
+class Item(XMLExpansion, etypes.Item):
     pass
 
-class ItemSentence(XMLExpansion, etype_class.ItemSentence):
+class ItemSentence(XMLExpansion, etypes.ItemSentence):
     pass
 
-class Subitem1(XMLExpansion, etype_class.Subitem1):
+class Subitem1(XMLExpansion, etypes.Subitem1):
     pass
 
-class Subitem1Sentence(XMLExpansion, etype_class.Subitem1Sentence):
+class Subitem1Sentence(XMLExpansion, etypes.Subitem1Sentence):
     pass
 
-class Subitem2(XMLExpansion, etype_class.Subitem2):
+class Subitem2(XMLExpansion, etypes.Subitem2):
     pass
 
-class Subitem2Sentence(XMLExpansion, etype_class.Subitem2Sentence):
+class Subitem2Sentence(XMLExpansion, etypes.Subitem2Sentence):
     pass
 
-class Subitem3(XMLExpansion, etype_class.Subitem3):
+class Subitem3(XMLExpansion, etypes.Subitem3):
     pass
 
-class Subitem3Sentence(XMLExpansion, etype_class.Subitem3Sentence):
+class Subitem3Sentence(XMLExpansion, etypes.Subitem3Sentence):
     pass
 
-class Subitem4(XMLExpansion, etype_class.Subitem4):
+class Subitem4(XMLExpansion, etypes.Subitem4):
     pass
 
-class Subitem4Sentence(XMLExpansion, etype_class.Subitem4Sentence):
+class Subitem4Sentence(XMLExpansion, etypes.Subitem4Sentence):
     pass
 
-class Subitem5(XMLExpansion, etype_class.Subitem5):
+class Subitem5(XMLExpansion, etypes.Subitem5):
     pass
 
-class Subitem5Sentence(XMLExpansion, etype_class.Subitem5Sentence):
+class Subitem5Sentence(XMLExpansion, etypes.Subitem5Sentence):
     pass
 
-class Sentence(XMLExpansion, etype_class.Sentence):
+class Sentence(XMLExpansion, etypes.Sentence):
     pass

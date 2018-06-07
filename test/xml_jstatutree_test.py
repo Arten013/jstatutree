@@ -4,7 +4,7 @@ sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
 import xml_jstatutree as jstatutree
-import xml_etype_class as etype
+import xml_etypes as etype
 
 class ReikiXMLReaderTestCase(unittest.TestCase):
     def setUp(self):
