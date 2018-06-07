@@ -19,7 +19,7 @@ class SourceInterface(object):
         pass
 
     @abstractmethod
-    def get_lawdata(self):
+    def read_lawdata(self):
         pass
 
     def __eq__(self, other):

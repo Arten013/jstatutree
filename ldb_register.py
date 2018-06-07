@@ -14,7 +14,6 @@ import plyvel
 import threading
 import shutil
 
-PATH = "/Users/KazuyaFujioka/Documents/all_data/{0:02}"
 
 files = []
 for r, d, f in os.walk(PATH):

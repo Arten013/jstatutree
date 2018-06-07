@@ -25,7 +25,7 @@ class LawDataTestCase(unittest.TestCase):
             jsdict[self.rr.lawdata] = self.rr
             self.assertTrue(len(jsdict) == 1)
             self.assertTrue(jsdict[self.rr.lawdata] == self.rr)
-        self.rr._lawdata = self.rr.get_lawdata()
+        self.rr._lawdata = self.rr.read_lawdata()
 
     def test_setgetitem(self):
         self.setgetitem_testunit("success", "XX条例", True)

@@ -14,8 +14,7 @@ def get_text(b, e_val):
 
 ETYPES = get_etypes(etype)
 
-
-class ReikiXMLReader(SourceInterface):
+class XMLReaderBase(SourceInterface):
     def __init__(self, path):
         self.path = os.path.abspath(path)
         self.file = None
@@ -25,11 +24,11 @@ class ReikiXMLReader(SourceInterface):
         if "_lawdata" not in self.__dict__ or self._lawdata is None:
             if self.is_closed():
                 self.open()
-                self._lawdata = self.get_lawdata()
+                self._lawdata = self.read_lawdata()
                 self.close()
             else:
-                self._lawdata = self.get_lawdata()
-        return self._lawdata        
+                self._lawdata = self.read_lawdata()
+        return self._lawdata     
 
     def open(self):
         with open(self.path) as f:
@@ -51,7 +50,23 @@ class ReikiXMLReader(SourceInterface):
         root.root = self.root_etree.find("./Law")
         return root
 
-    def get_lawdata(self):
+    def _read_law_name(self):
+        return get_text(self.root_etree.find('Law/LawBody/LawTitle'), None)
+
+    def _read_lawnum(self):
+        lawnum_text = get_text(self.root_etree.find('Law/LawNum'), "")
+        lawnum_text = unicodedata.normalize("NFKC", lawnum_text)
+        return None if len(lawnum_text) == 0 else lawnum_text
+
+    def read_lawdata(self):
+        lawdata =LawData()
+        lawdata.name = self._read_law_name()
+        lawdata.lawnum = self._read_lawnum()
+
+        return lawdata
+
+class ReikiXMLReader(XMLReaderBase):
+    def read_lawdata(self):
         lawdata =ReikiData()
         # reikicodeの設定
         p, file = os.path.split(self.path)
@@ -59,12 +74,7 @@ class ReikiXMLReader(SourceInterface):
         p, lawdata.municipality_code = os.path.split(p)
         _, lawdata.prefecture_code = os.path.split(p)
 
-        # nameの設定
-        lawdata.name = get_text(self.root_etree.find('Law/LawBody/LawTitle'), None)
-
-        # lawnumの設定
-        lawnum_text = get_text(self.root_etree.find('Law/LawNum'), "")
-        lawnum_text = unicodedata.normalize("NFKC", lawnum_text)
-        lawdata.lawnum = None if len(lawnum_text) == 0 else lawnum_text
+        lawdata.name = self._read_law_name()
+        lawdata.lawnum = self._read_lawnum()
 
         return lawdata

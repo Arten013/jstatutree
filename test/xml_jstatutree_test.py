@@ -16,7 +16,7 @@ class ReikiXMLReaderTestCase(unittest.TestCase):
         self.rr.open()
 
     def test_get_lawdata(self):
-    	ld = self.rr.get_lawdata()
+    	ld = self.rr.lawdata
     	self.assertTrue(issubclass(ld.__class__, jstatutree.LawData))
     	self.assertEqual(ld.code, "01/010001/0001")
     	self.assertEqual(ld.name, "法令名")
