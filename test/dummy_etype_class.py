@@ -4,6 +4,10 @@ class Law(object):
     @classmethod
     def is_root(cls):
         return True
+    @property
+    def etype(self):
+        return self.__class__
+
 
 class LawBody(object):
     PARENT_CANDIDATES = (Law,)
@@ -11,6 +15,10 @@ class LawBody(object):
     @classmethod
     def is_root(cls):
         return False
+    @property
+    def etype(self):
+        return self.__class__
+
 
 class MainProvision(object):
     PARENT_CANDIDATES = (LawBody,)
@@ -18,6 +26,10 @@ class MainProvision(object):
     @classmethod
     def is_root(cls):
         return False
+    @property
+    def etype(self):
+        return self.__class__
+
 
 class Part(object):
     PARENT_CANDIDATES = (MainProvision,)
@@ -25,3 +37,6 @@ class Part(object):
     @classmethod
     def is_root(cls):
         return False
+    @property
+    def etype(self):
+        return self.__class__

@@ -22,6 +22,14 @@ class SourceInterface(object):
     def get_lawdata(self):
         pass
 
+    def __eq__(self, other):
+        if not issubclass(other.__class__, SourceInterface):
+            return False
+        return self.lawdata == other.lawdata
+
+    def __hash__(self):
+        return hash(self.lawdata)
+
 def get_etypes(module):
     etypes = []
     root = None
@@ -36,23 +44,6 @@ def get_etypes(module):
             etypes.append(etype_cls)
     assert root is not None, "No root has been defined."+str(etypes)
     return [root] + etypes
-
-# 法令文書を扱うためのTree
-class JpnStatuTree(object):
-    def __init__(self, source):
-        self.source = source
-        self.source.open()
-        self.lawdata = self.source.get_lawdata()
-        self.source.close()
-
-    def get_tree(self):
-        return self.source.get_tree()
-
-    def __str__(self):
-        return "{name} ({num})".format(name=self.lawdata.name, num=self.lawdata.num)
-
-    def is_reiki(self):
-        return True if re.search("(?:条例|規則)", self.lawdata.lawnum) else False
 
 class LawData(object):
     def __init__(self):
@@ -135,6 +126,14 @@ class ReikiData(LawData):
         if self._id is 0:
             self._id = int(self.municipality_code) * 10000 + int(self.file_code)
         return self._id
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, ReikiData):
+            return False
+        return self.code == other.code
+
+    def __hash__(self):
+        return hash(self.code)
 
 # 要素の基底クラス
 class TreeElement(object):
