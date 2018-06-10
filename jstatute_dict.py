@@ -4,7 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import multiprocessing
 from itertools import combinations
 from jstatutree import SourceInterface
-
+from kvsdict import KVSDict
 
 
 class JStatuteDict(object):
@@ -22,6 +22,46 @@ class JStatuteDict(object):
 
     def __len__(self):
         return len(self.body)
+
+class JStatutreeKVSDict(KVSDict):
+    DEFAULT_DBNAME = "reiki.ldb"
+    PREFIX = b"statutree-"
+
+    def __init__(self, path, levels, only_reiki=True, *args, **kwargs):
+        self.only_reiki = only_reiki
+        self.levels = etypes.etype_sort(levels)
+        self.sentence_dict = dict()
+        super().__init__(path=path, *args, **kwargs)
+
+    def __setitem__(self, key, val):
+        assert issubclass(val.__class__, etypes.TreeElement), str(val)+" is not a jstatutree obj."
+        if not self.only_reiki or val.lawdata.is_reiki():
+            self._set_tree(val, self.levels)
+
+    def _set_tree(self, elem, levels):
+        if len(levels) == 0:
+            return
+        values = []
+        for next_elem in elem.depth_first_search(levels[0]):
+            values.append(next_elem.code)
+            self._set_tree(next_elem, levels[1:])
+        if len(values) > 0:
+            super().__setitem__(elem.code, values)
+        else:
+            self._set_tree(elem, _levels[1:])
+
+class JSSentenceKVSDict(KVSPrefixDict):
+    DEFAULT_DBNAME = "reiki.ldb"
+    PREFIX = b"sentences-"
+
+    @classmethod
+    def init_as_prefixed_db(cls, db, level=None, *args, **kwargs):
+        if level is None:
+            prefix = self.PREFIX
+        else:
+            level = level if isinstance(level, str) else level.__name__
+            prefix = self.PREFIX + level + "-"
+        ret = super().init_as_prefixed_db(db=db, prefix=prefix, *args, **kwargs)
 
 """
 QSIZE = 1000
