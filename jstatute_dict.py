@@ -3,9 +3,9 @@ from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import multiprocessing
 from itertools import combinations
-from jstatutree import SourceInterface
-from kvsdict import KVSDict, KVSPrefixDict
-import etypes
+from jstatutree.lawdata import SourceInterface
+from jstatutree.kvsdict import KVSDict, KVSPrefixDict
+import jstatutree.etypes as etypes
 
 
 class JStatuteDict(object):

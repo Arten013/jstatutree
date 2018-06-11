@@ -1,4 +1,4 @@
 from . import etypes
 from . import jstatute_dict
-from . import jstatutree
-from . import myexcepitons
+from . import lawdata
+from . import myexceptions

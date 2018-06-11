@@ -4,7 +4,6 @@ sys.path.append(
     )
 from kvsdict import KVSDict, KVSPrefixDict
 import unittest
-import jstatutree
 import shutil
 import time
 

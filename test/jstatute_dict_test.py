@@ -2,16 +2,16 @@ import sys, os
 sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
-from jstatute_dict import JStatuteDict, JStatutreeKVSDict, JSSentenceKVSDict
+from jstatutree.jstatute_dict import JStatuteDict, JStatutreeKVSDict, JSSentenceKVSDict
 import unittest
-import jstatutree
-from etypes import Law, Article, Sentence
+import jstatutree.lawdata as lawdata
+from jstatutree.etypes import Law, Article, Sentence
 
 class LawDataTestCase(unittest.TestCase):
     def setgetitem_testunit(self, assert_if, lawnum, only_reiki):
         jsdict = JStatuteDict(only_reiki=only_reiki)
-        statute = jstatutree.SourceInterface()
-        statute._lawdata = jstatutree.LawData()
+        statute = lawdata.SourceInterface()
+        statute._lawdata = lawdata.LawData()
         statute.lawdata._lawnum = lawnum
         if assert_if == "skip":
             jsdict[statute.lawdata] = statute

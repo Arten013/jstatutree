@@ -2,8 +2,8 @@ import sys, os
 sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
-from jstatutree import LawData, ReikiData, ElementNumber
-from etypes import get_etypes
+from jstatutree.lawdata import LawData, ReikiData, ElementNumber
+from jstatutree.etypes import get_etypes
 import unittest
 from decimal import Decimal
 
