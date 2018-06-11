@@ -35,20 +35,21 @@ class JStatutreeKVSDict(KVSDict):
 
     def __setitem__(self, key, val):
         assert issubclass(val.__class__, etypes.TreeElement), str(val)+" is not a jstatutree obj."
+        assert val.is_root(), "You cannot set non-root item ot JStatutreeKVSDict."
         if not self.only_reiki or val.lawdata.is_reiki():
-            self._set_tree(val, self.levels)
+            tree = self._get_tree_dict(val, self.levels)
+            for level_zero_key in tree.keys():
+                super().__setitem__(key, level_zero_key)
+            _set_tree_dict
 
-    def _set_tree(self, elem, levels):
+    def _get_tree_di(self, elem, levels, _tree_dict=None):
         if len(levels) == 0:
             return
-        values = []
+        tree_dict = dict() if tree is None else _tree_dict
+        tree_dict[elem.code] = dict()
         for next_elem in elem.depth_first_search(levels[0]):
-            values.append(next_elem.code)
-            self._set_tree(next_elem, levels[1:])
-        if len(values) > 0:
-            super().__setitem__(elem.code, values)
-        else:
-            self._set_tree(elem, _levels[1:])
+            tree_dict[next_elem.code] = self._get_tree(next_elem, levels[1:], tree_dict)
+        return tree_dict
 
     def write_batch(self, *args, **kwargs): 
         return JSBatchWriter(self, *args, **kwargs)

@@ -1,4 +1,6 @@
 from abc import abstractmethod
+import unicodedata
+from jstatutree.myexceptions import *
 
 # 要素の基底クラス
 class TreeElement(object):
@@ -167,7 +169,7 @@ class TreeElement(object):
     def depth_first_iteration(self):
         yield self
         for child in sorted(self.children.values()):
-            yield from child.depth_first_iteration(target_etype)
+            yield from child.depth_first_iteration()
 
     def iter_sentences(self):
         for child in self.depth_first_iteration():
@@ -324,7 +326,7 @@ class ArticleCaption(TreeElement):
     JNAME = "条見出し"
 
 class Paragraph(TreeElement):
-    LEVEL = ArticleCaption.LEVEL + 1
+    LEVEL = Article.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (MainProvision, Article)
     JNAME = "第{num}項"
@@ -335,12 +337,12 @@ class ParagraphCaption(TreeElement):
     JNAME = "項見出し"
 
 class ParagraphSentence(TreeElement):
-    LEVEL = ParagraphCaption.LEVEL + 1
+    LEVEL = Paragraph.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Paragraph,)
 
 class Item(TreeElement):
-    LEVEL = ParagraphSentence.LEVEL
+    LEVEL = Paragraph.LEVEL + 1
     SUBLEVEL = 2
     PARENT_CANDIDATES = (Paragraph,)
     JNAME = "第{num}号{branch}"
@@ -350,7 +352,7 @@ class ItemSentence(TreeElement):
     PARENT_CANDIDATES = (Item,)
 
 class Subitem1(TreeElement):
-    LEVEL = ItemSentence.LEVEL
+    LEVEL = Item.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Item,)
     JNAME = "{num}号細分{branch}"
@@ -360,7 +362,7 @@ class Subitem1Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem1,)
 
 class Subitem2(TreeElement):
-    LEVEL = Subitem1Sentence.LEVEL
+    LEVEL = Subitem1.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Subitem1,)
     JNAME = "{num}号細々分{branch}"
@@ -370,7 +372,7 @@ class Subitem2Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem2,)
 
 class Subitem3(TreeElement):
-    LEVEL = Subitem2Sentence.LEVEL
+    LEVEL = Subitem2.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Subitem2,)
     JNAME = "{num}号細々々分{branch}"
@@ -379,8 +381,8 @@ class Subitem3Sentence(TreeElement):
     LEVEL = Subitem3.LEVEL + 1
     PARENT_CANDIDATES = (Subitem3,)
 
-class Subitem4(TreeElement):
-    LEVEL = Subitem3Sentence.LEVEL
+class Subitem4(TreeElement): 
+    LEVEL = Subitem3.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Subitem3,)
     JNAME = "{num}号細々々々分{branch}"
@@ -390,7 +392,7 @@ class Subitem4Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem4,)
 
 class Subitem5(TreeElement):
-    LEVEL = Subitem4Sentence.LEVEL
+    LEVEL = Subitem4.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Subitem4,)
     JNAME = "{num}号細々々々々分{branch}"
@@ -400,7 +402,7 @@ class Subitem5Sentence(TreeElement):
     PARENT_CANDIDATES = (Subitem5,)
 
 class Sentence(TreeElement):
-    LEVEL = Subitem5Sentence.LEVEL + 1
+    LEVEL = Subitem5.LEVEL + 1
     PARENT_CANDIDATES = (
         ParagraphSentence, 
         ItemSentence, 
