@@ -1,0 +1,3 @@
+[submodule "ml_jstatutree"]
+	path = ml_jstatutree
+	url = https://github.com/Arten013/ml_jstatutree.git

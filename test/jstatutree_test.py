@@ -2,14 +2,14 @@ import sys, os
 sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
-from jstatutree.jstatutree import LawData, ReikiData, ElementNumber
-from jstatutree.etypes import get_etypes
+from jstatutree import LawData, ReikiData, ElementNumber
+from etypes import get_etypes
 import unittest
 from decimal import Decimal
 
 class GetClassesTestCase(unittest.TestCase):
     def test_get_classes(self):
-        from jstatutree.test import dummy_etypes as test_module
+        from . import dummy_etypes as test_module
         classes = test_module.get_etypes()
         self.assertEqual(classes[0], test_module.Law)
         classes = sorted(classes, key=lambda x: x.__name__)

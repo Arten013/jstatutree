@@ -1,6 +1,4 @@
 from abc import abstractmethod
-import unicodedata
-from .myexceptions import *
 
 # 要素の基底クラス
 class TreeElement(object):
@@ -169,7 +167,7 @@ class TreeElement(object):
     def depth_first_iteration(self):
         yield self
         for child in sorted(self.children.values()):
-            yield from child.depth_first_iteration()
+            yield from child.depth_first_iteration(target_etype)
 
     def iter_sentences(self):
         for child in self.depth_first_iteration():
@@ -200,7 +198,7 @@ class TreeElement(object):
             if self.etype.LEVEL != elem.etype.LEVEL:
                 raise HieralchyError(
                     self.lawdata,
-                    "Unexpected elements occured in the same layer "+str(self.etype)+" "+str(elem.etype)
+                    "Unexpected element occured in the same layer "+str(self.etype)+" "+str(elem.etype)
                     )
             if self.etype.SUBLEVEL == self.etype.SUBLEVEL:
                 return self.num.num < elem.num.num
@@ -326,7 +324,7 @@ class ArticleCaption(TreeElement):
     JNAME = "条見出し"
 
 class Paragraph(TreeElement):
-    LEVEL = Article.LEVEL + 1
+    LEVEL = ArticleCaption.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (MainProvision, Article)
     JNAME = "第{num}項"
@@ -337,12 +335,12 @@ class ParagraphCaption(TreeElement):
     JNAME = "項見出し"
 
 class ParagraphSentence(TreeElement):
-    LEVEL = Paragraph.LEVEL + 1
+    LEVEL = ParagraphCaption.LEVEL + 1
     SUBLEVEL = 1
     PARENT_CANDIDATES = (Paragraph,)
 
 class Item(TreeElement):
-    LEVEL = Paragraph.LEVEL + 1
+    LEVEL = ParagraphSentence.LEVEL
     SUBLEVEL = 2
     PARENT_CANDIDATES = (Paragraph,)
     JNAME = "第{num}号{branch}"

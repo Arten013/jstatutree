@@ -2,10 +2,10 @@ import sys, os
 sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
-from jstatutree.jstatute_dict import JStatuteDict, JStatutreeKVSDict, JSSentenceKVSDict
+from jstatute_dict import JStatuteDict, JStatutreeKVSDict, JSSentenceKVSDict
 import unittest
-import jstatutree.jstatutree
-from jstatutree.etypes import Law, Article, Sentence
+import jstatutree
+from etypes import Law, Article, Sentence
 
 class LawDataTestCase(unittest.TestCase):
     def setgetitem_testunit(self, assert_if, lawnum, only_reiki):

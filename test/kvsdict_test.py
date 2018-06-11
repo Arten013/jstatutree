@@ -2,9 +2,9 @@ import sys, os
 sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
-from jstatutree.kvsdict import KVSDict, KVSPrefixDict
+from kvsdict import KVSDict, KVSPrefixDict
 import unittest
-import jstatutree.jstatutree
+import jstatutree
 import shutil
 import time
 
