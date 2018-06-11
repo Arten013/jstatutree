@@ -1,6 +1,3 @@
-[submodule "xml_jstatutree"]
-	path = xml_jstatutree
-	url = https://github.com/Arten013/xml_jstatutree.git
 [submodule "ml_jstatutree"]
 	path = ml_jstatutree
 	url = https://github.com/Arten013/ml_jstatutree.git
