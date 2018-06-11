@@ -1,3 +1,12 @@
+import sys, os
+sys.path.append(
+    os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
+    )
+from etypes import get_etypes_core
+
+def get_etypes():
+    return get_etypes_core(globals())
+
 class Law(object):
     PARENT_CANDIDATES = ()
 
