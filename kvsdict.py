@@ -5,7 +5,7 @@ import os
 class KVSDict(object):
     DEFAULT_DBNAME = "kvsdict.ldb"
     ENCODING = "utf8"
-    PREFIX = b"example-"
+    PREFIX = "example-"
 
     def __init__(self, path, create_if_missing=True, _called_by_classmethod=False, *args, **kwargs):
         if _called_by_classmethod:
@@ -13,10 +13,29 @@ class KVSDict(object):
         self.path = path
         self.db = plyvel.DB(self.path, create_if_missing=create_if_missing)
 
+    @property
+    def prefix(self):
+        if "_prefix" not in self.__dict__ or self._prefix is None:
+            self._prefix = self.__class__.PREFIX
+            if isinstance(self.prefix, str):
+                self.prefix = self.prefix.encode(self.ENCODING)
+        return self._prefix
+
+    @prefix.setter
+    def prefix(self, val):
+        if isinstance(val, bytes):
+            self._prefix = val
+        elif isinstance(val, str):
+            self._prefix = val.encode(self.ENCODING)
+        elif val is None:
+            self._prefix = None
+        else:
+            raise Exception("{} is invalid value for prefix".format(val))
+
     @classmethod
     def init_as_prefixed_db(cls, db, prefix=None, *args, **kwargs):
         instance = cls(path="", _called_by_classmethod=True, *args, **kwargs)
-        self.prefix = self.__class__.PREFIX if prefix is None else prefix
+        self.prefix = prefix
         instance.db = db.prefixed_db(self.prefix)
         return instance
 
@@ -108,6 +127,6 @@ class BatchWriter(object):
 
 class KVSPrefixDict(KVSDict):
     def __init__(self, db, prefix=None, *args, **kwargs):
-        self.prefix = self.__class__.PREFIX if prefix is None else prefix
+        self.prefix = prefix
         self.db = db.db.prefixed_db(self.prefix)
 

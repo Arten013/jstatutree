@@ -1,5 +1,4 @@
-from jstatutree import TreeElement, RootExpansion
-
+from abc import abstractmethod
 
 # 要素の基底クラス
 class TreeElement(object):
@@ -158,7 +157,7 @@ class TreeElement(object):
         elif target_etype.LEVEL > self.etype.LEVEL:
             for child in sorted(self.children.values()):
                 if child.etype.LEVEL >= target_etype.LEVEL:
-                    yield from child.depth_first_iteration(target_etype):
+                    yield from child.depth_first_iteration(target_etype)
                 else:
                     yield self
         else:
@@ -205,7 +204,7 @@ class TreeElement(object):
                 return self.num.num < elem.num.num
             else:
                 return self.etype.SUBLEVEL < self.etype.SUBLEVEL
-        return self.parent < elem.parent:
+        return self.parent < elem.parent
 
     def __le__(self, elem):
         if self == elem:
@@ -255,9 +254,9 @@ class RootExpansion(object):
         return self.lawdata.name+self.name
 
 def get_etypes():
-    return _get_etypes_core(globals_dict=globals())
+    return get_etypes_core(globals_dict=globals())
 
-def _get_etypes_core(globals_dict):
+def get_etypes_core(globals_dict):
     etypes = []
     root = None
     for etype_name, etype_cls in globals_dict.items():

@@ -2,9 +2,10 @@ import sys, os
 sys.path.append(
     os.path.split(os.path.split(os.path.abspath(__file__))[0])[0]
     )
-from jstatute_dict import JStatuteDict
+from jstatute_dict import JStatuteDict, JStatutreeKVSDict, JSSentenceKVSDict
 import unittest
 import jstatutree
+from etypes import Law, Article, Sentence
 
 class LawDataTestCase(unittest.TestCase):
     def setgetitem_testunit(self, assert_if, lawnum, only_reiki):
@@ -31,6 +32,28 @@ class LawDataTestCase(unittest.TestCase):
             Exception,
             lambda: JStatuteDict().__setitem__("hoge", "fuga")
             )
+
+import shutil
+TEST_PATH = os.path.dirname(__file__)
+DB_PATH = os.path.join(TEST_PATH, "testdb.ldb")
+DATASET_PATH = os.path.join(TEST_PATH, "testset")
+class JSKVSTestCase(unittest.TestCase):
+    def setUp(self):
+        self.levels = [Law, Sentence, Article]
+        self.treedict = JStatutreeKVSDict(path=DB_PATH, levels=self.levels, create_if_missing=True)
+        self.sentence_dicts = {
+                level.__name__: JSSentenceKVSDict(db=self.treedict, level=level)
+                for level in self.levels
+            }
+
+    def tearDown(self):
+        self.treedict.close()
+        shutil.rmtree(DB_PATH)
+
+    def test_init(self):
+        self.assertTrue(self.treedict.levels == [Law, Article, Sentence])
+        for level in self.levels:
+            self.assertTrue(self.sentence_dicts[level.__name__].prefix == "sentence-{}-".format(level.__name__).encode(self.sentence_dicts[level.__name__].ENCODING))
 
 if __name__ == "__main__":
     unittest.main()
