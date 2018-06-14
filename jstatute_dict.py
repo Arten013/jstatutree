@@ -3,9 +3,11 @@ from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import multiprocessing
 from itertools import combinations
-from jstatutree.lawdata import SourceInterface
-from jstatutree.kvsdict import KVSDict, KVSPrefixDict
-import jstatutree.etypes as etypes
+from .lawdata import SourceInterface
+from .kvsdict import KVSDict, KVSPrefixDict
+from . import etypes
+import re
+import os
 
 
 class JStatuteDict(object):
@@ -33,31 +35,31 @@ class JStatutreeKVSDict(KVSDict):
         self.levels = etypes.sort_etypes(levels)
         super().__init__(path=path, *args, **kwargs)
 
+    def set_from_reader(self, reader):
+        self[reader.lawdata.code] = reader.get_tree()
+
     def __setitem__(self, key, val):
         assert issubclass(val.__class__, etypes.TreeElement), str(val)+" is not a jstatutree obj."
         assert val.is_root(), "You cannot set non-root item ot JStatutreeKVSDict."
         if not self.only_reiki or val.lawdata.is_reiki():
-            tree = self._get_tree_dict(val, self.levels)
-            for level_zero_key in tree.keys():
-                super().__setitem__(key, level_zero_key)
-            _set_tree_dict(tree)
+            self._set_tree(key, val, self.levels)
 
-    def _set_tree_dict(self, tree_dict):
-        if len(tree_dict) == 0:
-            return
-        for key, subtree_dict in tree_dict.items():
-            self._set_tree_dict(subtree_dict)
-            for subtree_key, _ in subtree_dict.items():
-                super().__setitem__(key, subtree_key)
-
-    def _get_tree_dict(self, elem, levels, _tree_dict=None):
+    def _set_tree(self, key, elem, levels):
         if len(levels) == 0:
             return
-        tree_dict = dict() if tree is None else _tree_dict
-        tree_dict[elem.code] = dict()
+        next_keys = []
         for next_elem in elem.depth_first_search(levels[0]):
-            tree_dict[next_elem.code] = self._get_tree(next_elem, levels[1:], tree_dict)
-        return tree_dict
+            if re.sub("\(.+?\)$", "", os.path.split(next_elem.code)[1]) != levels[0].__name__:
+                virtual_elem_key = next_elem.code+"/{}(1)".format(levels[0].__name__)
+                next_keys.append(virtual_elem_key)
+            else:
+                next_keys.append(next_elem.code)
+            self._set_tree(next_keys[-1], next_elem, levels[1:])
+        super().__setitem__(key, next_keys)
+        #print("connected:")
+        #print("  \t", key)
+        #for v in self[key]:
+        #   print("->\t", v)
 
     def write_batch(self, *args, **kwargs): 
         return JSBatchWriter(self, *args, **kwargs)
@@ -72,27 +74,25 @@ class JStatutreeBatchWriter(object):
         assert issubclass(val.__class__, etypes.TreeElement), str(val)+" is not a jstatutree obj."
         assert val.is_root(), "You cannot set non-root item ot JStatutreeKVSDict."
         if not self.only_reiki or val.lawdata.is_reiki():
-            tree = self._get_tree_dict(val, self.levels)
-            for level_zero_key in tree.keys():
-                super().__setitem__(key, level_zero_key)
-            _set_tree_dict(tree)
+            self._set_tree(key, val, self.levels)
 
-    def _set_tree_dict(self, tree_dict):
-        if len(tree_dict) == 0:
-            return
-        for key, subtree_dict in tree_dict.items():
-            self._set_tree_dict(subtree_dict)
-            for subtree_key, _ in subtree_dict.items():
-                super().__setitem__(key, subtree_key)
-
-    def _get_tree_dict(self, elem, levels, _tree_dict=None):
+    def _set_tree(self, key, elem, levels):
         if len(levels) == 0:
             return
-        tree_dict = dict() if tree is None else _tree_dict
-        tree_dict[elem.code] = dict()
+        next_keys = []
         for next_elem in elem.depth_first_search(levels[0]):
-            tree_dict[next_elem.code] = self._get_tree(next_elem, levels[1:], tree_dict)
-        return tree_dict
+            if re.sub("\(.+?\)$", "", os.path.split(next_elem.code)[1]) != levels[0].__name__:
+                virtual_elem_key = next_elem.code+"/{}(1)".format(levels[0].__name__)
+                next_keys.append(virtual_elem_key)
+            else:
+                next_keys.append(next_elem.code)
+            self._get_tree_dict(next_keys[-1], next_elem, levels[1:])
+        super().__setitem__(key, next_keys)
+        if "1847" in key:
+            print("connected:")
+            print("  \t", key)
+            for v in self[key]:
+                print("->\t", v)
 
     def __delitem__(self, key):
         self.wb.delete(self._encode_key(key))

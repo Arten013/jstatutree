@@ -35,8 +35,8 @@ class KVSDict(object):
     @classmethod
     def init_as_prefixed_db(cls, db, prefix=None, *args, **kwargs):
         instance = cls(path="", _called_by_classmethod=True, *args, **kwargs)
-        self.prefix = prefix
-        instance.db = db.prefixed_db(self.prefix)
+        instance.prefix = prefix
+        instance.db = db.prefixed_db(instance.prefix)
         return instance
 
     @property
@@ -89,13 +89,16 @@ class KVSDict(object):
         return (pickle.loads(v) for v in self.db.iterator(include_key=False, include_value=True))
 
     def __len__(self):
-        return len(list(self.keys()))
+        l = 0
+        for _ in self.keys():
+            l += 1
+        return l
 
     def is_prefixed_db(self):
         return isinstance(self.db, plyvel._plyvel.PrefixedDB)
 
     def close(self):
-        if not self.is_prefixed_db():
+        if "db" in self.__dict__ and not self.is_prefixed_db():
             self.db.close()
 
     def __del__(self):
@@ -128,5 +131,5 @@ class BatchWriter(object):
 class KVSPrefixDict(KVSDict):
     def __init__(self, db, prefix=None, *args, **kwargs):
         self.prefix = prefix
-        self.db = db.db.prefixed_db(self.prefix)
+        self.db = db.prefixed_db(self.prefix)
 

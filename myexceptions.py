@@ -29,6 +29,9 @@ class LawError(Exception):
             "\n\n"
             )
 
+class EncodingError(LawError):
+    pass
+
 class ProvisionError(LawError):
     pass
 

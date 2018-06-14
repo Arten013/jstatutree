@@ -1,6 +1,6 @@
 from abc import abstractmethod
 import unicodedata
-from jstatutree.myexceptions import *
+from .myexceptions import *
 
 # 要素の基底クラス
 class TreeElement(object):
@@ -153,13 +153,15 @@ class TreeElement(object):
         # target_etypeはこのetypes.pyから呼ばれたものになるので、(SUB)LEVEL以外は使わないように！
         if isinstance(target_etype, str):
             target_etype = globals()[target_etype]
+
         if target_etype.LEVEL == self.etype.LEVEL:
             if not sublevel_match or target_etype.SUBLEVEL == self.etype.SUBLEVEL:
                 yield self
+            return
         elif target_etype.LEVEL > self.etype.LEVEL:
             for child in sorted(self.children.values()):
-                if child.etype.LEVEL >= target_etype.LEVEL:
-                    yield from child.depth_first_iteration(target_etype)
+                if child.etype.LEVEL <= target_etype.LEVEL:
+                    yield from child.depth_first_search(target_etype, sublevel_match)
                 else:
                     yield self
         else:
@@ -175,6 +177,10 @@ class TreeElement(object):
         for child in self.depth_first_iteration():
             if child.etype.__name__ == "Sentence":
                 yield child.text
+                
+    def iter_texts(self):
+        for child in self.depth_first_iteration():
+            yield child.text
 
     def _comparable_check(self, elem):
         #assert elem.__class__ in ((self.etype,) + self.BROTHER_CANDIDATES), "cannot compare {} and {}".format(self.etype, elem.__class__)
@@ -196,7 +202,11 @@ class TreeElement(object):
 
     def __lt__(self, elem):
         self._comparable_check(elem)
-        if self.parent == elem.parent:
+        if self.etype.LEVEL > elem.etype.LEVEL:
+            return self.parent > elem
+        elif self.etype.LEVEL < elem.etype.LEVEL:
+            return self > elem.parent
+        elif self.parent == elem.parent:
             if self.etype.LEVEL != elem.etype.LEVEL:
                 raise HieralchyError(
                     self.lawdata,
@@ -213,15 +223,18 @@ class TreeElement(object):
             return True
         return self < elem
 
-    def __gt__(self):
+    def __gt__(self, elem):
         return not self <= elem
 
-    def __ge__(self):
+    def __ge__(self, elem):
         return not self < elem
 
     @property
     def code(self):
-        return self.lawdata.code + "/" + str(self)
+        if "_code" not in self.__dict__:
+            nums = [self.num.main_num] + self.num.branch_nums
+            self._code = self.parent.code + "/{etype}({num})".format(etype=self.etype.__name__, num="_".join([str(n) for n in nums]))
+        return self._code
 
     def __hash__(self):
         return hash(self.code)
@@ -254,6 +267,13 @@ class RootExpansion(object):
 
     def __str__(self):
         return self.lawdata.name+self.name
+
+    @property
+    def code(self):
+        if "_code" not in self.__dict__:
+            nums = [self.num.main_num] + self.num.branch_nums
+            self._code = self.lawdata.code + "/{etype}({num})".format(etype=self.etype.__name__, num="_".join([str(n) for n in nums]))
+        return self._code
 
 def get_etypes():
     return get_etypes_core(globals_dict=globals())

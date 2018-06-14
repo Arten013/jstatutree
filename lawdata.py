@@ -2,7 +2,7 @@ from abc import abstractmethod
 import inspect
 from decimal import Decimal
 import re
-from jstatutree.myexceptions import LawElementNumberError, HieralchyError
+from .myexceptions import LawElementNumberError, HieralchyError
 import unicodedata
 
 class SourceInterface(object):
