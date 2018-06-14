@@ -133,3 +133,14 @@ class KVSPrefixDict(KVSDict):
         self.prefix = prefix
         self.db = db.prefixed_db(self.prefix)
 
+class KVSValuesCounter(KVSPrefixDict):
+    PREFIX = "Count-"
+    def __init__(self, kvsdict, prefix=None, *args, **kwargs):
+        super().__init__(db=kvsdict.db, prefix=prefix, *args, **kwargs)
+        with kvsdict.db.snapshot() as snapshot:
+            with kvsdict.write_batch(transaction=True) as wb:
+                for k, v in snapshot.values():
+                    v = wb[v]
+                    wb[v] = 0 if v is None else v + 1
+
+
