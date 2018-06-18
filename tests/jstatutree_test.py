@@ -4,6 +4,7 @@ sys.path.append(
     )
 from jstatutree.lawdata import LawData, ReikiData, ElementNumber
 from jstatutree.etypes import get_etypes
+from jstatutree.xmltree import xml_etypes, xml_lawdata
 import unittest
 from decimal import Decimal
 
@@ -95,6 +96,66 @@ class ElementNumberTestCase(unittest.TestCase):
         self.check_valid_values("100", 100)
         self.check_valid_values("1_1", 1, 1)
         self.check_valid_values("1_1_1", 1, 1, 1)
+from jstatutree.xmltree import xml_lawdata
+from jstatutree.xmltree import xml_etypes
+
+class VirtualEtypesTestCase(unittest.TestCase):
+    def setUp(self):
+        testset_path = os.path.join(os.path.dirname(__file__), "testset/01/010001/0001.xml")
+        self.rr = xml_lawdata.ReikiXMLReader(testset_path)
+        self.rr.open()
+        assert self.rr.get_tree() is not None, "test set path is invalid.\n"+str(testset_path)
+
+    def test_get_lawdata(self):
+        ld = self.rr.lawdata
+        self.assertTrue(issubclass(ld.__class__, xml_lawdata.LawData))
+        self.assertEqual(ld.code, "01/010001/0001")
+        self.assertEqual(ld.name, "法令名")
+        self.assertEqual(ld.lawnum, "法令番号")
+
+    def element_match(self, elem, etype, num=0, text="", is_vnode=True):
+        print(elem, "vnode({})".format(elem.etype.__name__) if elem.is_vnode else "")
+        self.assertEqual(etype, elem.etype)
+        self.assertEqual(num, int(elem.num.num))
+        self.assertEqual(text, elem.text)
+        self.assertEqual(elem.is_vnode, is_vnode)
+
+    def elements_match(self, tree, target_type, patterns=[[]]):
+        for i, e in enumerate(tree.depth_first_search(target_type, valid_vnode=True)):
+            self.element_match(e, target_type, *patterns[i])
+
+    def test_depth_first_search(self):
+        tree = self.rr.get_tree()
+        self.elements_match(tree, xml_etypes.Law, patterns=[[1, "", False]])
+        self.elements_match(tree, xml_etypes.LawBody, patterns=[[1, "", False]])
+        self.elements_match(tree, xml_etypes.MainProvision, patterns=[[1, "", False]])
+        self.elements_match(tree, xml_etypes.Part)
+        self.elements_match(tree, xml_etypes.Chapter)
+        self.elements_match(tree, xml_etypes.Section)
+        self.elements_match(tree, xml_etypes.SubSection)
+        self.elements_match(tree, xml_etypes.Division)
+        self.elements_match(tree, xml_etypes.Item, patterns=
+            [
+                [0, "", True],
+                [0, "", True],
+                [0, "", True],
+                [1, "", False ],
+                [2, "", False ]
+            ]
+            )
+        self.elements_match(tree, xml_etypes.Subitem1, patterns=
+            [
+                [0, "", True],
+                [0, "", True],
+                [0, "", True],
+                [0, "", True ],
+                [0, "", True ],
+                [1, "", False ]
+            ]
+            )
+
+
+
 
 
 if __name__ == "__main__":

@@ -14,8 +14,12 @@ def get_etypes():
 
 class XMLExpansion(object):
     @classmethod
-    def inheritance(cls, parent, root, auto_index):
-        child = super(XMLExpansion, cls).inheritance(parent)
+    def vnode_inheritance(cls, parent):
+        return cls.inheritance(parent, parent.root, 0, error_ok=True)
+
+    @classmethod
+    def inheritance(cls, parent, root, auto_index, error_ok=False):
+        child = super(XMLExpansion, cls).inheritance(parent, error_ok)
         child.root = root
         child.num = ElementNumber(auto_index)
         return child
@@ -69,7 +73,7 @@ class Chapter(XMLExpansion, etypes.Chapter):
 class Section(XMLExpansion, etypes.Section):
     pass
 
-class Subsection(XMLExpansion, etypes.Subsection):
+class SubSection(XMLExpansion, etypes.Subsection):
     pass
 
 class Division(XMLExpansion, etypes.Division):
