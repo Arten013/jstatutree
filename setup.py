@@ -1,12 +1,18 @@
-etup(
+from setuptools import setup, find_packages
+import sys
+
+sys.path.append('./test')
+
+setup(
         name='jstatutree',
         version='0.0.1',
         description='Tree structure classes for JStatute XML Document',
-        long_description=readme,
+        #long_description=readme,
         author='Kazuya Fujioka',
         author_email='fukknkaz@gmail.com',
         url='https://github.com/Arten013/jstatutree',
         license=license,
         packages=find_packages(exclude=('test',)),
-        install_requires=['numpy', 'plyvel']
+        install_requires=['numpy', 'plyvel'],
+        test_suite="tests"
 )
