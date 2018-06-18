@@ -113,13 +113,13 @@ class JSSentenceKVSDict(KVSPrefixDict):
     DEFAULT_DBNAME = "reiki.ldb"
     PREFIX = "sentence-"
 
-    def __init__(self, db, level=None, *args, **kwargs):
+    def __init__(self, db=None, kvsdict=None, level=None, *args, **kwargs):
         if level is None:
             prefix = self.PREFIX
         else:
             level = level if isinstance(level, str) else level.__name__
             prefix = self.PREFIX + level + "-"
-        ret = super().__init__(db=db, prefix=prefix, *args, **kwargs)
+        super().__init__(db=db, kvsdict=kvsdict, prefix=prefix, *args, **kwargs)
 
 """
 QSIZE = 1000

@@ -42,7 +42,7 @@ class JSKVSTestCase(unittest.TestCase):
         self.levels = [Law, Sentence, Article]
         self.treedict = JStatutreeKVSDict(path=DB_PATH, levels=self.levels, create_if_missing=True)
         self.sentence_dicts = {
-                level.__name__: JSSentenceKVSDict(db=self.treedict, level=level)
+                level.__name__: JSSentenceKVSDict(kvsdict=self.treedict, level=level)
                 for level in self.levels
             }
 

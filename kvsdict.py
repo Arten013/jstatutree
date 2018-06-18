@@ -33,10 +33,10 @@ class KVSDict(object):
             raise Exception("{} is invalid value for prefix".format(val))
 
     @classmethod
-    def init_as_prefixed_db(cls, db, prefix=None, *args, **kwargs):
-        instance = cls(path="", _called_by_classmethod=True, *args, **kwargs)
+    def init_as_prefixed_db(cls, kvsdict, prefix=None, *args, **kwargs):
+        instance = cls(path=kvsdict.path, _called_by_classmethod=True, *args, **kwargs)
         instance.prefix = prefix
-        instance.db = db.prefixed_db(instance.prefix)
+        instance.db = kvsdict.db.prefixed_db(instance.prefix)
         return instance
 
     @property
@@ -70,6 +70,9 @@ class KVSDict(object):
     def write_batch(self, *args, **kwargs): 
         return BatchWriter(self, *args, **kwargs)
 
+    def snapshot(self):
+        return SnapShot(self)
+
     def __setitem__(self, key, val):
         self.db.put(self._encode_key(key), pickle.dumps(val))
 
@@ -88,6 +91,13 @@ class KVSDict(object):
     def values(self):
         return (pickle.loads(v) for v in self.db.iterator(include_key=False, include_value=True))
 
+    def get(self, key, default=None):
+        val = self.db.get(self._encode_key(key))
+        if val is None:
+            return default
+        else:
+            return pickle.loads(val)
+
     def __len__(self):
         l = 0
         for _ in self.keys():
@@ -103,6 +113,49 @@ class KVSDict(object):
 
     def __del__(self):
         self.close()
+
+    def is_empty(self):
+        with self.db.iterator(include_key=True, include_value=False) as iterator:
+            for _ in iterator:
+                return False
+        return True
+
+class SnapShot(object):
+    def __init__(self, kvsdict):
+        self.ss = kvsdict.db.snapshot()
+        self._encode_key = kvsdict._encode_key
+        self._decode_key = kvsdict._decode_key
+
+    def __getitem__(self, key):
+        return pickle.loads(self.ss.get(self._encode_key(key)))
+
+    def items(self):
+        return ((self._decode_key(k), pickle.loads(v)) for k, v in self.ss.iterator(include_key=True, include_value=True))
+
+    def keys(self):
+        return (self._decode_key(k) for k in self.ss.iterator(include_key=True, include_value=False))
+
+    def values(self):
+        return (pickle.loads(v) for v in self.ss.iterator(include_key=False, include_value=True))
+
+    def get(self, key, default=None):
+        val = self.ss.get(self._encode_key(key))
+        if val is None:
+            return default
+        else:
+            return pickle.loads(val)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is not None:
+            return False
+        self.close()
+        return True
+
+    def close(self):
+        self.ss.close()
 
 class BatchWriter(object):
     def __init__(self, kvsdict, *args, **kwargs):
@@ -129,18 +182,23 @@ class BatchWriter(object):
         self.wb.write()
 
 class KVSPrefixDict(KVSDict):
-    def __init__(self, db, prefix=None, *args, **kwargs):
-        self.prefix = prefix
-        self.db = db.prefixed_db(self.prefix)
-
-class KVSValuesCounter(KVSPrefixDict):
-    PREFIX = "Count-"
     def __init__(self, kvsdict, prefix=None, *args, **kwargs):
-        super().__init__(db=kvsdict.db, prefix=prefix, *args, **kwargs)
-        with kvsdict.db.snapshot() as snapshot:
-            with kvsdict.write_batch(transaction=True) as wb:
-                for k, v in snapshot.values():
-                    v = wb[v]
-                    wb[v] = 0 if v is None else v + 1
+        self.prefix = prefix
+        self.path = kvsdict.path
+        self.db = kvsdict.db.prefixed_db(self.prefix)
 
+class KVSCounterBase(KVSDict):
+    def __init__(self, kvsdict, overwrite=False):
+        dirpath, dbfilename = os.path.split(kvsdict.path)
+        path = os.path.join(dirpath, "Counter-"+dbfilename)
+        super().__init__(path=path)
+        if overwrite or self.is_empty():
+            print("count begin")
+            self.add_from_kvs(kvsdict)
+
+class KVSValuesCounter(KVSCounterBase):
+    def add_from_kvs(self, kvsdict):
+        with kvsdict.snapshot() as snapshot:
+            for v in snapshot.values():
+                self[v] = self.get(v, 0)+1
 
