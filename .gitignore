@@ -105,3 +105,6 @@ venv.bak/
 
 # leveldb
 .ldb
+
+# dsstore
+.DS_Store
