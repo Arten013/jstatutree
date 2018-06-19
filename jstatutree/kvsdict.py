@@ -12,6 +12,9 @@ class KVSDict(object):
         self.path = path
         self.db = plyvel.DB(self.path, create_if_missing=create_if_missing)
 
+    def to_dict(self):
+        return {k:v for k, v in self.items()}
+
     @property
     def prefix(self):
         if "_prefix" not in self.__dict__ or self._prefix is None:
