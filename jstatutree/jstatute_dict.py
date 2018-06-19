@@ -6,6 +6,7 @@ from itertools import combinations
 from .lawdata import SourceInterface
 from .kvsdict import KVSDict, KVSPrefixDict
 from . import etypes
+from .tree_element import TreeElement
 import re
 import os
 
@@ -39,7 +40,7 @@ class JStatutreeKVSDict(KVSDict):
         self[reader.lawdata.code] = reader.get_tree()
 
     def __setitem__(self, key, val):
-        assert issubclass(val.__class__, etypes.TreeElement), str(val)+" is not a jstatutree obj."
+        assert issubclass(val.__class__, TreeElement), str(val)+" is not a jstatutree obj."
         assert val.is_root(), "You cannot set non-root item ot JStatutreeKVSDict."
         if not self.only_reiki or val.lawdata.is_reiki():
             self._set_tree(key, val, self.levels)
@@ -71,7 +72,7 @@ class JStatutreeBatchWriter(object):
         self.ENCODING = kvsdict.ENCODING
 
     def __setitem__(self, key, val):
-        assert issubclass(val.__class__, etypes.TreeElement), str(val)+" is not a jstatutree obj."
+        assert issubclass(val.__class__, TreeElement), str(val)+" is not a jstatutree obj."
         assert val.is_root(), "You cannot set non-root item ot JStatutreeKVSDict."
         if not self.only_reiki or val.lawdata.is_reiki():
             self._set_tree(key, val, self.levels)
