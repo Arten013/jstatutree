@@ -45,6 +45,7 @@ class LawData(object):
     def __init__(self):
         self._name = None
         self._lawnum = None
+        self._code = None
 
     @property
     def name(self):
@@ -65,6 +66,9 @@ class LawData(object):
     def is_reiki(self):
         return True if re.search("(?:条例|規則)", self.lawnum) else False
 
+    @property
+    def code(self):
+        return self.lawnum
 
 # 例規のメタデータ
 class ReikiData(LawData):

@@ -1,4 +1,5 @@
 from .tree_element import TreeElement
+from .lawdata import ElementNumber, LawData
 
 def get_etypes():
     return get_etypes_core(globals_dict=globals())
@@ -23,13 +24,32 @@ def get_etypes_core(globals_dict):
 def sort_etypes(etypes, *args, **kwargs):
     return sorted(etypes, key=lambda x: (x.LEVEL, x.SUBLEVEL), *args, **kwargs)
 
+def convert_recursively(src_root, _tar_root=None, etypes_dict=None):
+    etypes_dict = globals() if etypes_dict is None else etypes_dict
+    tar_root = etypes_dict[src_root.etype.__name__].convert(src_root) if _tar_root is None else _tar_root
+    tar_root._children = dict()
+    for src_elem in src_root.children.values():
+        new_etype = etypes_dict[src_elem.etype.__name__].convert(src_elem)
+        new_etype.parent = tar_root
+        tar_root.children[new_etype.name] = convert_recursively(src_elem, new_etype, etypes_dict)
+    return tar_root
+
 class RootExpansion(object):
     def __init__(self, lawdata):
         self.parent = None
         self._lawdata = lawdata
-        self._num = None
+        self._num = ElementNumber("1")
         self._children = None
         self._text = None
+
+    @classmethod
+    def convert(cls, src_elem):
+        tar_elem = cls(src_elem.lawdata)
+        assert src_elem.num is not None, "Source etype must have num"
+        tar_elem._num = src_elem.num
+        tar_elem._text = src_elem.text
+        tar_elem._children = dict()
+        return tar_elem
 
     # 親から子を生成する場合は__init__を直接呼ばずにこちらで初期化する
     @classmethod

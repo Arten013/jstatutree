@@ -3,7 +3,6 @@ import pickle
 from collections import UserDict
 import os
 class KVSDict(object):
-    DEFAULT_DBNAME = "kvsdict.ldb"
     ENCODING = "utf8"
     PREFIX = "example-"
 
@@ -47,13 +46,9 @@ class KVSDict(object):
 
     @path.setter
     def path(self, path):
-        if os.path.isdir(path):
-            os.makedirs(path, exist_ok=True)
-            path = os.path.join(path, self.DEFAULT_DBNAME)
-        else:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            if os.path.splitext(path)[1] == "":
-                path += ".ldb"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.splitext(path)[1] == "":
+            path += ".ldb"
         self._path = path
 
     def _encode_key(self, key):

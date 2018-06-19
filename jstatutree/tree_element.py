@@ -17,6 +17,16 @@ class TreeElement(object):
         self._children = None
         self._text = None
 
+    @classmethod
+    def convert(cls, src_elem):
+        tar_elem = cls()
+        #print(src_elem)
+        assert src_elem.num is not None, "Source etype must have num"
+        tar_elem._num = src_elem.num
+        tar_elem._text = src_elem.text
+        tar_elem._children = dict()
+        return tar_elem
+
     def get_virtual_node(self, target_etype):
         vnode = target_etype.vnode_inheritance(self)
         vnode._is_vnode=True

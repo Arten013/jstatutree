@@ -114,7 +114,7 @@ class VirtualEtypesTestCase(unittest.TestCase):
         self.assertEqual(ld.lawnum, "法令番号")
 
     def element_match(self, elem, etype, num=0, text="", is_vnode=True):
-        print(elem, "vnode({})".format(elem.etype.__name__) if elem.is_vnode else "")
+        print(elem, "{}(vnode)".format(elem.etype.__name__) if elem.is_vnode else "{}".format(elem.etype.__name__))
         self.assertEqual(etype, elem.etype)
         self.assertEqual(num, int(elem.num.num))
         self.assertEqual(text, elem.text)
@@ -132,7 +132,7 @@ class VirtualEtypesTestCase(unittest.TestCase):
         self.elements_match(tree, xml_etypes.Part)
         self.elements_match(tree, xml_etypes.Chapter)
         self.elements_match(tree, xml_etypes.Section)
-        self.elements_match(tree, xml_etypes.SubSection)
+        self.elements_match(tree, xml_etypes.Subsection)
         self.elements_match(tree, xml_etypes.Division)
         self.elements_match(tree, xml_etypes.Item, patterns=
             [

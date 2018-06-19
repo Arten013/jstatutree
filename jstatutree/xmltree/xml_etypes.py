@@ -14,6 +14,10 @@ def get_etypes():
 
 class XMLExpansion(object):
     @classmethod
+    def convert(cls, *args, **kwargs):
+        raise Exception("Cannot convert from other tree elements to xml tree elements.")
+
+    @classmethod
     def vnode_inheritance(cls, parent):
         return cls.inheritance(parent, parent.root, 0, error_ok=True)
 
@@ -73,7 +77,7 @@ class Chapter(XMLExpansion, etypes.Chapter):
 class Section(XMLExpansion, etypes.Section):
     pass
 
-class SubSection(XMLExpansion, etypes.Subsection):
+class Subsection(XMLExpansion, etypes.Subsection):
     pass
 
 class Division(XMLExpansion, etypes.Division):

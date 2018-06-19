@@ -63,7 +63,7 @@ class ReikiXMLReaderTestCase(unittest.TestCase):
 
         ]
         for i, child in enumerate(tree.depth_first_iteration()):
-            print((child, int(child.num.num), child.text), answers[i])
+            #print((child, int(child.num.num), child.text), answers[i])
             self.element_match(child, *answers[i])
 
     def tearDown(self):
