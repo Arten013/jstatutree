@@ -54,7 +54,7 @@ class TreeElement(object):
     def is_vnode(self):
         if "_is_vnode" not in self.__dict__:
             self._is_vnode = False
-        return self._is_vnode
+        return self._is_vnode    
     
     @property
     def code(self):
