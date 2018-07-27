@@ -3,136 +3,131 @@ from jstatutree import etypes
 from jstatutree.lawdata import ElementNumber
 from jstatutree.myexceptions import LawElementNumberError
 
-def get_text(b, e_val):
-    if b is not None and b.text is not None and len(b.text) > 0:
-        return b.text
-    else:
-        return e_val
-
 def get_etypes():
     return etypes.get_etypes_core(globals())
 
-class XMLExpansion(object):
-    @classmethod
-    def convert(cls, *args, **kwargs):
-        raise Exception("Cannot convert from other tree elements to xml tree elements.")
+def convert_recursively(src_root):
+    return etypes.convert_recursively(src_root, _tar_root=None, etypes_dict=globals())
+
+class N4JExpansion(object):
+    def get_virtual_node(self, target_etype):
+        vnode = target_etype.vnode_inheritance(self)
+        vnode._is_vnode=True
+        vnode._children = self._children
+        #print("generate vnode:", vnode, vnode.etype.__name__)
+        #print("from:", self, self.etype.__name__)
+        return vnode
 
     @classmethod
     def vnode_inheritance(cls, parent):
-        return cls.inheritance(parent, parent.root, 0, error_ok=True)
-
+        return cls.inheritance(self.node, parent, error_ok=True)
+    # 親から子を生成する場合は__init__を直接呼ばずにこちらで初期化する
     @classmethod
-    def inheritance(cls, parent, root, auto_index, error_ok=False):
-        child = super(XMLExpansion, cls).inheritance(parent, error_ok)
-        child.root = root
-        child.num = ElementNumber(auto_index)
+    def inheritance(cls, node, parent, error_ok=False):
+        if not error_ok and not isinstance(parent, cls.PARENT_CANDIDATES):
+            raise HieralchyError(
+                parent.lawdata,
+                "invalid hieralchy "+parent.etype.__name__ + " -> " + cls.__name__
+            )
+        child = cls(parent)
+        child.node = node
         return child
 
-    def _read_children_list(self):
-        auto_index = dict()
-        for f in list(self.root):
-            if f.tag not in globals():
-                continue
-            auto_index[f.tag] = auto_index.get(f.tag, 0) + 1
-            yield globals()[f.tag].inheritance(self, f, auto_index[f.tag])
-
+    # load node properties from database when it called
     @property
-    def num(self):
-        return super().num
+    def properties(self):
+        return self.node
 
-    @num.setter
-    def num(self, auto_index):
-        if self._num is None:
-            self._num = self._read_num()
-            if self._num is None:
-                self._num = auto_index
+    # read children nodes from database
+    def _read_children_list(self):
+        for rel in self.node.relationships.all():
+            if rel.type != 'CHILD_OF':
+                continue
+            child_node = rel.end
+            child = globals()[child_node.properties["etype"]].inheritance(child_node, self)
 
     def _read_num(self):
-        numstr = self.root.attrib.get('Num', None)
-        if numstr is None:
-            return None
-        try:
-            return ElementNumber(numstr)
-        except LawElementNumberError as e:
-            raise LawElementNumberError(self.lawdata, **e.__dict__)
+        return self.properties['num']
 
     def _read_text(self):
-        return get_text(self.root, "")
+        return self.properties.get('text','')
 
-class Law(XMLExpansion, etypes.Law):
+class Law(N4JExpansion, etypes.Law):
+    def __init__(self, lawdata):
+        super().__init__(lawdata)
+        self.node = lawdata.node
+
+class LawBody(N4JExpansion, etypes.LawBody):
     pass
 
-class LawBody(XMLExpansion, etypes.LawBody):
+class MainProvision(N4JExpansion, etypes.MainProvision):
     pass
 
-class MainProvision(XMLExpansion, etypes.MainProvision):
+class Part(N4JExpansion, etypes.Part):
     pass
 
-class Part(XMLExpansion, etypes.Part):
+class Chapter(N4JExpansion, etypes.Chapter):
     pass
 
-class Chapter(XMLExpansion, etypes.Chapter):
+class Section(N4JExpansion, etypes.Section):
     pass
 
-class Section(XMLExpansion, etypes.Section):
+class Subsection(N4JExpansion, etypes.Subsection):
     pass
 
-class Subsection(XMLExpansion, etypes.Subsection):
+class Division(N4JExpansion, etypes.Division):
     pass
 
-class Division(XMLExpansion, etypes.Division):
+class Article(N4JExpansion, etypes.Article):
     pass
 
-class Article(XMLExpansion, etypes.Article):
+class ArticleCaption(N4JExpansion, etypes.ArticleCaption):
     pass
 
-class ArticleCaption(XMLExpansion, etypes.ArticleCaption):
+class Paragraph(N4JExpansion, etypes.Paragraph):
     pass
 
-class Paragraph(XMLExpansion, etypes.Paragraph):
+class ParagraphSentence(N4JExpansion, etypes.ParagraphSentence):
     pass
 
-class ParagraphSentence(XMLExpansion, etypes.ParagraphSentence):
+class ParagraphCaption(N4JExpansion, etypes.ParagraphCaption):
     pass
 
-class ParagraphCaption(XMLExpansion, etypes.ParagraphCaption):
+class Item(N4JExpansion, etypes.Item):
     pass
 
-class Item(XMLExpansion, etypes.Item):
+class ItemSentence(N4JExpansion, etypes.ItemSentence):
     pass
 
-class ItemSentence(XMLExpansion, etypes.ItemSentence):
+class Subitem1(N4JExpansion, etypes.Subitem1):
     pass
 
-class Subitem1(XMLExpansion, etypes.Subitem1):
+class Subitem1Sentence(N4JExpansion, etypes.Subitem1Sentence):
     pass
 
-class Subitem1Sentence(XMLExpansion, etypes.Subitem1Sentence):
+class Subitem2(N4JExpansion, etypes.Subitem2):
     pass
 
-class Subitem2(XMLExpansion, etypes.Subitem2):
+class Subitem2Sentence(N4JExpansion, etypes.Subitem2Sentence):
     pass
 
-class Subitem2Sentence(XMLExpansion, etypes.Subitem2Sentence):
+class Subitem3(N4JExpansion, etypes.Subitem3):
     pass
 
-class Subitem3(XMLExpansion, etypes.Subitem3):
+class Subitem3Sentence(N4JExpansion, etypes.Subitem3Sentence):
     pass
 
-class Subitem3Sentence(XMLExpansion, etypes.Subitem3Sentence):
+class Subitem4(N4JExpansion, etypes.Subitem4):
     pass
 
-class Subitem4(XMLExpansion, etypes.Subitem4):
+class Subitem4Sentence(N4JExpansion, etypes.Subitem4Sentence):
     pass
 
-class Subitem4Sentence(XMLExpansion, etypes.Subitem4Sentence):
+class Subitem5(N4JExpansion, etypes.Subitem5):
     pass
 
-class Subitem5(XMLExpansion, etypes.Subitem5):
+class Subitem5Sentence(N4JExpansion, etypes.Subitem5Sentence):
     pass
 
-class Subitem5Sentence(XMLExpansion, etypes.Subitem5Sentence):
-    pass
-
-class Sentence(XMLExpansion, etypes.Sentence):
+class Sentence(N4JExpansion, etypes.Sentence):
     pass
