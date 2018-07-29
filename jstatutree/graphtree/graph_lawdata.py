@@ -9,6 +9,7 @@ from . import graph_etypes
 from neo4jrestclient.client import GraphDatabase, Node
 import neo4jrestclient
 from time import sleep
+import multiprocessing
 
 def get_text(b, e_val):
     if b is not None and b.text is not None and len(b.text) > 0:
@@ -139,26 +140,58 @@ class ReikiGDB(JStatutreeGDB):
                         )
             try:
                 self.db.query(query)
-                print('executed', query)
+                # print('executed', query)
             except Exception as exc:
-                print('skip', query)
-                print(exc)
+                # print('skip', query)
+                # print(exc)
+                pass
 
+
+
+    def reg_governments(self, code):
+        if int(code) >= 10000:
+            code_str = '{0:06}'.format(int(code))
+            if code_str in self.governments:
+                return
+            query = """
+                merge (m:Municipalities{code: '%s'})
+                merge (p:Prefectures{code: left(m.code, 2)})
+                merge (p)-[:PREF_OF]->(m)
+                return m, p
+            """ % code_str
+            mnode, pnode = self.db.query(query, returns=[Node, Node])[0]
+            self.governments[mnode['code']] = mnode
+            self.governments[pnode['code']] = pnode
+            print('reg gov:', mnode['code'])
+        else:
+            code_str = '{0:02}'.format(int(code))
+            if code_str in self.governments:
+                print('skip reg gov: ', code_str)
+                return
+            if code_str in self.governments:
+                return
+            query = """
+                MERGE (p:Prefectures{code: '%s'}
+                RETURN p
+            """ % code_str
+            pnode = self.db.query(query)[0]
+            self.governments[pnode['code']] = pnode
+            print('reg gov:', pnode['code'])
 
     def reg_lawdata(self, lawdata):
-        if lawdata.prefecture_code not in self.governments:
-            node = self.db.nodes.create(code=lawdata.prefecture_code)
-            node.labels.add('Prefectures')
-            self.governments[lawdata.prefecture_code] = node
-        if lawdata.municipality_code not in self.governments:
-            node = self.db.nodes.create(code=lawdata.municipality_code)
-            node.labels.add('Municipalities')
-            self.governments[lawdata.municipality_code] = node
-            self.governments[lawdata.prefecture_code].relationships.create('PREF_OF', node)
-        node = self.db.nodes.create(code=lawdata.file_code, name=lawdata.name, lawnum=lawdata.lawnum)
-        node.labels.add('Statutories')
-        self.governments[lawdata.municipality_code].relationships.create('MUNI_OF', node)
-        return node
+        self.reg_governments(lawdata.municipality_code)
+        query = """
+            MATCH (m:Municipalities{code: '%s'})
+            MERGE (s:Statutories{code: '%s', name: '%s', lawnum: '%s'})
+            ON CREATE SET s.created='true'
+            ON MATCH SET s.created='false'
+            MERGE (m)-[:MUNI_OF]->(s)
+            WITH s, s.created AS created
+            REMOVE s.created
+            RETURN s, created
+        """ % (lawdata.municipality_code, lawdata.file_code, lawdata.name, lawdata.lawnum)
+        res = self.db.query(query, returns=[Node, bool])
+        return res[0][0] if res[0][1] else None
 
     def load_lawdata(self, muni_code, file_code):
         query = """
