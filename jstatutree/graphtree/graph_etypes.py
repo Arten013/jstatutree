@@ -20,7 +20,11 @@ class N4JExpansion(object):
 
     @classmethod
     def vnode_inheritance(cls, parent):
-        return cls.inheritance(parent.node, parent, error_ok=True)
+        tmp_parent = parent
+        while not hasattr(tmp_parent, 'node'):
+            assert tmp_parent.node is not None, 'Unexpected Error'
+            tmp_parent = tmp_parent.parent
+        return cls.inheritance(tmp_parent.node, parent, error_ok=True)
     # 親から子を生成する場合は__init__を直接呼ばずにこちらで初期化する
     @classmethod
     def inheritance(cls, node, parent, error_ok=False):
