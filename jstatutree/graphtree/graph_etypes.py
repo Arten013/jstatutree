@@ -20,7 +20,7 @@ class N4JExpansion(object):
 
     @classmethod
     def vnode_inheritance(cls, parent):
-        return cls.inheritance(self.node, parent, error_ok=True)
+        return cls.inheritance(parent.node, parent, error_ok=True)
     # 親から子を生成する場合は__init__を直接呼ばずにこちらで初期化する
     @classmethod
     def inheritance(cls, node, parent, error_ok=False):
