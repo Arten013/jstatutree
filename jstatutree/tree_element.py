@@ -27,7 +27,11 @@ class TreeElement(object):
         tar_elem._children = dict()
         return tar_elem
 
+    def get_coherent_etype(self, etype):
+        raise 'This method must be overridden.'
+
     def get_virtual_node(self, target_etype):
+        target_etype = self.get_coherent_etype(target_etype)
         vnode = target_etype.vnode_inheritance(self)
         vnode._is_vnode=True
         vnode._children = self._children

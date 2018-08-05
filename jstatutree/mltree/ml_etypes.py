@@ -16,6 +16,16 @@ def convert_recursively(src_root):
     return etypes.convert_recursively(src_root, _tar_root=None, etypes_dict=globals())
 
 class MLExpansion(object):
+    def get_coherent_etype(self, etype):
+        # print('get_coherent_etype: begin')
+        etype = etype if isinstance(etype, str) else etype.__name__
+        # print('get_coherent_etype: receive etype '+str(etype))
+        for et in get_etypes():
+            # print('get_coherent_etype: try ' +str(et))
+            if et.__name__ == etype:
+                # print('get_coherent_etype: return '+str(et))
+                return et
+        raise 'invalid etype '+etype
     @property
     def db(self):
         return self.parent.db if "_db" not in self.__dict__ else self._db

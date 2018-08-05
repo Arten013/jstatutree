@@ -1,4 +1,4 @@
-from .tree_element import TreeElement
+from .tree_element import TreeElement as TreeElementBase
 from .lawdata import ElementNumber, LawData
 
 def get_etypes():
@@ -33,6 +33,18 @@ def convert_recursively(src_root, _tar_root=None, etypes_dict=None):
         new_etype.parent = tar_root
         tar_root.children[new_etype.name] = convert_recursively(src_elem, new_etype, etypes_dict)
     return tar_root
+
+class TreeElement(TreeElementBase):
+    def get_coherent_etype(self, etype):
+        # print('get_coherent_etype: begin')
+        etype = etype if isinstance(etype, str) else etype.__name__
+        # print('get_coherent_etype: receive etype '+str(etype))
+        for et in get_etypes():
+            # print('get_coherent_etype: try ' +str(et))
+            if et.__name__ == etype:
+                # print('get_coherent_etype: return '+str(et))
+                return et
+        raise 'invalid etype '+etype
 
 class RootExpansion(object):
     def __init__(self, lawdata):

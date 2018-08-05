@@ -13,6 +13,16 @@ def get_etypes():
     return etypes.get_etypes_core(globals())
 
 class XMLExpansion(object):
+    def get_coherent_etype(self, etype):
+        # print('get_coherent_etype: begin')
+        etype = etype if isinstance(etype, str) else etype.__name__
+        # print('get_coherent_etype: receive etype '+str(etype))
+        for et in get_etypes():
+            # print('get_coherent_etype: try ' +str(et))
+            if et.__name__ == etype:
+                # print('get_coherent_etype: return '+str(et))
+                return et
+        raise 'invalid etype '+etype
     @classmethod
     def convert(cls, *args, **kwargs):
         raise Exception("Cannot convert from other tree elements to xml tree elements.")
