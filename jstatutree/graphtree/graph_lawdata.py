@@ -10,7 +10,14 @@ from neo4jrestclient.client import GraphDatabase, Node
 import neo4jrestclient
 from time import sleep
 import multiprocessing
-
+import traceback
+def find_all_files(directory, extentions=None):
+    for root, dirs, files in os.walk(directory):
+        if extentions is None or os.path.splitext(root)[1] in extentions:
+            yield root
+        for file in files:
+            if extentions is None or os.path.splitext(file)[1] in extentions:
+                yield os.path.join(root, file)
 def get_text(b, e_val):
     if b is not None and b.text is not None and len(b.text) > 0:
         return b.text
@@ -37,13 +44,21 @@ class GDBReikiData(ReikiData):
     @property
     def file_code(self):
         return self.node['file_code']
-
+from time import sleep
 class JStatutreeGDB(object):
-    def __init__(self, usr, pw, url="http://localhost:7474/db/data"):
-        self.usr = usr
-        self.pw = pw
-        self.url = url
-        self.db = GraphDatabase(url, username=usr, password=pw)
+    def __init__(self, *args, **kwargs):
+        exc = None
+        for i in range(50):
+            try:
+                self.db = GraphDatabase(*args, **kwargs)
+                print('connected (retried {} times)'.format(i))
+            except Exception as e:
+                exc = e
+                sleep(0.01)
+                continue
+            break
+        else:
+            raise exc
 
     def get_properties(self, node_id):
         return self.db.node[node_id].properties
@@ -240,3 +255,114 @@ class GDBReaderBase(SourceInterface):
 
 class ReikiGDBReader(GDBReaderBase):
     pass
+
+def split_list(alist, wanted_parts=1):
+    length = len(alist)
+    return [ alist[i*length // wanted_parts: (i+1)*length // wanted_parts] 
+            for i in range(wanted_parts) ]
+
+import concurrent
+import configparser
+
+class DBConfig(object):
+    def __init__(self, path=None):
+        self.parser = configparser.ConfigParser()
+        if path is not None:
+            self.path = path
+            os.path.exists(self.path) and self.load()
+        self.section = self.parser['DEFAULT']
+
+    def change_section(self, name, create_if_missing=True):
+        if create_if_missing:
+            self.parser.add_section(name)
+        assert self.parser.has_section(name), 'There is no section named '+name+'.'
+        self.section = self.parser[name]
+
+    def set_path(self, path):
+        self.path = path
+
+    def load(self):
+        with open(self.path) as f:
+            self.parser.read_file(f)
+
+    def save(self):
+        os.makedirs(os.path.split(self.path)[0], exist_ok=True)
+        with open(self.path, 'w') as f:
+            self.parser.write(f, self)
+
+    def update(self):
+        assert self.path is not None, 'You must set path before reload database configure'
+        self.save()
+        self.load()
+
+    def set_logininfo(self, host='localhost', port='17474', usr='neo4j', pw='pass'):
+        self.section.update(
+                {
+                    'port': str(port),
+                    'usr': usr,
+                    'pw': pw,
+                    'host': host,
+                }
+            )
+
+    @property
+    def url(self):
+        return 'http://{host}:{port}'.format(host=self.section['host'], port=self.section['port'])
+
+    @property
+    def loginkey(self):
+        return {
+                    'username': self.section['usr'],
+                    'password': self.section['pw'],
+                    'url': self.url
+                }
+
+def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count()):
+    path_lists = split_list(list(find_all_files(basepath, [".xml"])), workers)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as proc_exec:
+        futures = [
+                proc_exec.submit(
+                        register_from_pathlist,
+                        pathlist=path_lists[i],
+                        loginkey=loginkey,
+                        levels=levels,
+                        only_reiki=only_reiki,
+                        only_sentence=only_sentence
+                    ) for i in range(workers)
+                ]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception:
+                traceback.print_exc()
+from jstatutree.xmltree import xml_lawdata
+def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence):
+    gdb = ReikiGDB(**loginkey)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(
+            set_data_from_reader,
+            gdb=gdb,
+            reader=xml_lawdata.ReikiXMLReader(path),
+            only_reiki=only_reiki,
+            only_sentence=only_sentence,
+            levels=levels
+            ) for path in pathlist]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                print(future.result())
+            except Exception:
+                traceback.print_exc()
+
+def set_data_from_reader(gdb, reader, levels, only_reiki, only_sentence):
+    if gdb.load_lawdata(reader.lawdata.municipality_code, reader.lawdata.file_code) is not None:
+        return 'skip(exists): '+str(reader.lawdata.name)
+    reader.open()
+    if reader.is_closed():
+        return 'skip(cannot open): '+str(reader.lawdata.name)
+    elif not only_reiki or reader.lawdata.is_reiki():
+        gdb.set_from_reader(reader, levels=levels)
+        ret = 'register: '+str(reader.lawdata.name)
+    else:
+        ret = 'skip(not reiki): '+str(reader.lawdata.name)
+    reader.close()
+    return ret
