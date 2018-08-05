@@ -2,6 +2,7 @@ from abc import abstractmethod
 import unicodedata
 from .myexceptions import *
 from .lawdata import ElementNumber
+import re
 
 # 要素の基底クラス
 class TreeElement(object):
@@ -17,7 +18,39 @@ class TreeElement(object):
         self._children = None
         self._text = None
 
+    @property
+    def cypher_node_name(self):
+        # return '_'.join([self.etype.__name__.lower(), str(self.num.main_num)]+[str(n) for n in self.num.branch_nums])
+        return re.sub('[()]', '', re.sub('/', '_', self.code[15:]))
+
+    def subtree_cypher(self, levels, create_statement=True, valid_vnode=True):
+        cypher = "CREATE " if create_statement else '\t'
+        cypher += self.create_cypher(self.cypher_node_name)
+        i = 0
+        while len(levels) > i:
+            if levels[i].LEVEL > self.etype.LEVEL:
+                break
+            i += 1
+        else:
+            return cypher
+        for child in self.depth_first_search(levels[i], valid_vnode=valid_vnode):
+            cypher += ',\n' + child.subtree_cypher(levels[i:], create_statement=False, valid_vnode=valid_vnode)
+            cypher += ',\n\t({node_name})-[:HAS_ELEM]->({child_name})'.format(node_name=self.cypher_node_name, child_name=child.cypher_node_name)
+        return cypher
+
+    def create_cypher(self, name=''):
+        return ''.join([ 
+            """(%s:%s{""" % (name, self.etype.__name__ + 's'),
+            """name: '%s',""" % (self.name if self.name!='' else self.etype.__name__),
+            """fullname: '%s',""" % str(self),
+            """num: '%s',""" % str(self.num.num),
+            """text: '%s',""" % self.text, #(self.text if len(self.text) < 5 else self.text[:5]),
+            """fulltext: '%s',""" % ''.join(self.iter_sentences()),#[:5],
+            """etype: '%s'""" % self.etype.__name__,
+            """})"""
+            ])
     @classmethod
+
     def convert(cls, src_elem):
         tar_elem = cls()
         #print(src_elem)

@@ -3,7 +3,7 @@ import os
 import unicodedata
 import re
 import inspect
-import xml.etree.ElementTree as ET
+from jstatutree.xmltree import xml_lawdata, xml_etypes
 from jstatutree.lawdata import SourceInterface, ReikiData, LawData
 from . import graph_etypes
 from neo4jrestclient.client import GraphDatabase, Node
@@ -71,47 +71,15 @@ class JStatutreeGDB(object):
     def reg_lawdata(self, lawdata):
         return self.db.nodes.create(code=lawdata.code, name=lawdata.name, lawnum=lawdata.lawnum)
 
-    def reg_element(self, elem, label='Elements'):
-        node = self.db.nodes.create(
-                name=elem.name if elem.name!='' else elem.etype.__name__,
-                fullname=str(elem),
-                num=str(elem.num.num),
-                text=elem.text,
-                fulltext=''.join(elem.iter_sentences()),
-                etype=elem.etype.__name__
-                )
-        node.labels.add(label)
-        return node
-
-    def reg_tree(self, tree, tree_node=None):
-        tree_node = self.reg_element(tree) if tree_node is None else tree_node
-        for child_elem in tree.children.values():
-            child_node = self.reg_element(child_elem)
-            tree_node.relationships.create('HAS_ELEM', child_node)
-            self.reg_tree(child_elem, child_node)
-        return tree_node
-
-    def reg_level_restricted_tree(self, tree, levels, tree_node=None, level_index=0):
-        if level_index >= len(levels):
-            return
-        tree_node = self.reg_element(tree, label=tree.etype.__name__+'s') if tree_node is None else tree_node
-        for child_elem in tree.depth_first_search(levels[level_index], valid_vnode=True):
-            if tree.etype == child_elem.etype:
-                self.reg_level_restricted_tree(tree, levels, tree_node, level_index+1)
-                break
-            else:
-                child_node = self.reg_element(child_elem, label=child_elem.etype.__name__+'s')
-                tree_node.relationships.create('HAS_ELEM', child_node)
-                self.reg_level_restricted_tree(child_elem, levels, child_node, level_index+1)
-        return tree_node
-
     def set_from_reader(self, reader, levels='ALL'):
         lawdata_node = self.reg_lawdata(reader.lawdata)
-        if levels == 'ALL':
-            tree_node = self.reg_tree(reader.get_tree())
-        else:
-            tree_node = self.reg_level_restricted_tree(reader.get_tree(), levels)
-        lawdata_node.relationships.create('TREE', tree_node)
+        levels = levels if levels != 'ALL' else xml_etypes.get_etypes()
+        tree = reader.get_tree()
+        cypher = """MATCH (:Municipalities{code: '%s'})-[:MUNI_OF]->(stat:Statutories{code: '%s'})\n""" % (reader.lawdata.municipality_code, reader.lawdata.file_code)
+        cypher += tree.subtree_cypher(levels)
+        cypher += """,\n\t(stat)-[:TREE]->(%s)""" % (tree.cypher_node_name)
+        # print(cypher)
+        self.db.query(cypher)
         return lawdata_node
 
 class ReikiGDB(JStatutreeGDB):
@@ -335,7 +303,6 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
                 future.result()
             except Exception:
                 traceback.print_exc()
-from jstatutree.xmltree import xml_lawdata
 def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence):
     gdb = ReikiGDB(**loginkey)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
