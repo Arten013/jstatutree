@@ -5,6 +5,7 @@ import re
 import inspect
 from jstatutree.xmltree import xml_lawdata, xml_etypes
 from jstatutree.lawdata import SourceInterface, ReikiData, LawData
+from jstatutree.myexceptions import LawError
 from . import graph_etypes
 from neo4jrestclient.client import GraphDatabase, Node
 import neo4jrestclient
@@ -54,7 +55,7 @@ class JStatutreeGDB(object):
                 print('connected (retried {} times)'.format(i))
             except Exception as e:
                 exc = e
-                sleep(0.01)
+                sleep(0.1)
                 continue
             break
         else:
@@ -71,16 +72,6 @@ class JStatutreeGDB(object):
     def reg_lawdata(self, lawdata):
         return self.db.nodes.create(code=lawdata.code, name=lawdata.name, lawnum=lawdata.lawnum)
 
-    def set_from_reader(self, reader, levels='ALL'):
-        lawdata_node = self.reg_lawdata(reader.lawdata)
-        levels = levels if levels != 'ALL' else xml_etypes.get_etypes()
-        tree = reader.get_tree()
-        cypher = """MATCH (:Municipalities{code: '%s'})-[:MUNI_OF]->(stat:Statutories{code: '%s'})\n""" % (reader.lawdata.municipality_code, reader.lawdata.file_code)
-        cypher += tree.subtree_cypher(levels)
-        cypher += """,\n\t(stat)-[:TREE]->(%s)""" % (tree.cypher_node_name)
-        # print(cypher)
-        self.db.query(cypher)
-        return lawdata_node
 
 class ReikiGDB(JStatutreeGDB):
     INDEX_TYPE = {
@@ -253,30 +244,48 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
 def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence):
     gdb = ReikiGDB(**loginkey)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(
-            set_data_from_reader,
-            gdb=gdb,
-            reader=xml_lawdata.ReikiXMLReader(path),
-            only_reiki=only_reiki,
-            only_sentence=only_sentence,
-            levels=levels
-            ) for path in pathlist]
+        futures = []
+        for path in pathlist: 
+            reader=xml_lawdata.ReikiXMLReader(path)
+            if gdb.load_lawdata(reader.lawdata.municipality_code, reader.lawdata.file_code) is not None:
+                 print('skip(exists): '+str(reader.lawdata.name))
+                 continue
+            reader.open()
+            if reader.is_closed():
+                print('skip(cannot open): '+str(reader.lawdata.name))
+                continue
+            if only_reiki and not reader.lawdata.is_reiki():
+                print('skip(not reiki): '+str(reader.lawdata.name))
+                reader.close()
+                continue
+            futures.append(
+                    executor.submit(
+                            set_from_reader,
+                            reader=reader,
+                            levels=levels
+                        )
+                )
         for future in concurrent.futures.as_completed(futures):
-            try:
-                print(future.result())
-            except Exception:
-                traceback.print_exc()
+            result, output, lawdata = future.result()
+            if result:
+                gdb.reg_lawdata(lawdata)
+                gdb.db.query(output)
+                print('register: '+str(lawdata.name))
+            else:
+                print(output)
 
-def set_data_from_reader(gdb, reader, levels, only_reiki, only_sentence):
-    if gdb.load_lawdata(reader.lawdata.municipality_code, reader.lawdata.file_code) is not None:
-        return 'skip(exists): '+str(reader.lawdata.name)
-    reader.open()
-    if reader.is_closed():
-        return 'skip(cannot open): '+str(reader.lawdata.name)
-    elif not only_reiki or reader.lawdata.is_reiki():
-        gdb.set_from_reader(reader, levels=levels)
-        ret = 'register: '+str(reader.lawdata.name)
-    else:
-        ret = 'skip(not reiki): '+str(reader.lawdata.name)
-    reader.close()
-    return ret
+def set_from_reader(reader, levels='ALL'):
+    levels = levels if levels != 'ALL' else xml_etypes.get_etypes()
+    try:
+        tree = reader.get_tree()
+        cypher = """MATCH (:Municipalities{code: '%s'})-[:MUNI_OF]->(stat:Statutories{code: '%s'})\n""" % (reader.lawdata.municipality_code, reader.lawdata.file_code)
+        cypher += tree.subtree_cypher(levels)
+        cypher += """,\n\t(stat)-[:TREE]->(%s)""" % (tree.cypher_node_name)
+        ret = True, cypher, reader.lawdata
+    except LawError as e:
+        ret = False, str(e), None
+    except Exception as e:
+        ret = False, traceback.format_exc(), None
+    finally:
+        reader.close()
+        return ret
