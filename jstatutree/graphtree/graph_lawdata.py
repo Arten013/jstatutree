@@ -225,22 +225,33 @@ import concurrent
 
 def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count()):
     path_lists = split_list(list(find_all_files(basepath, [".xml"])), workers)
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as proc_exec:
-        futures = [
-                proc_exec.submit(
-                        register_from_pathlist,
-                        pathlist=path_lists[i],
-                        loginkey=loginkey,
-                        levels=levels,
-                        only_reiki=only_reiki,
-                        only_sentence=only_sentence
-                    ) for i in range(workers)
-                ]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                future.result()
-            except Exception:
-                traceback.print_exc()
+    remains = None
+    while remains is None or len(remains):
+        if remains is not None:
+            path_lists = split_list(remains, workers)
+        remains = []
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as proc_exec:
+            futures = []
+            for i in range(workers):
+                future = proc_exec.submit(
+                            register_from_pathlist,
+                            pathlist=path_lists[i],
+                            loginkey=loginkey,
+                            levels=levels,
+                            only_reiki=only_reiki,
+                            only_sentence=only_sentence
+                        )
+                future.processing_path_list_id = i
+                futures.append(future)
+                print('proc-future', i, 'submitted')
+            for future in concurrent.futures.as_completed(futures):
+                print('proc-future', future.processing_path_list_id, 'finished')
+                try:
+                    future.result()
+                    print('proc-future', future.processing_path_list_id, 'succeed')
+                except Exception:
+                    remains.extend(path_lists[future.processing_path_list_id])
+                    print('proc-future', future.processing_path_list_id, 'retry')
 def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence):
     gdb = ReikiGDB(**loginkey)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
