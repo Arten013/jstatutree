@@ -295,16 +295,13 @@ def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence
         for future in concurrent.futures.as_completed(futures):
             result, output, lawdata = future.result()
             if result:
-                commited = False
-                with gdb.db.transaction(for_query=True) as tx:
-                    try:
+                while True:
+                    with gdb.db.transaction(for_query=True) as tx:
                         gdb.reg_lawdata(lawdata)
                         gdb.db.query(output)
                         tx.commit()
-                        commited=True
-                    except Exception:
-                        traceback.print_exc()
-                commited and print('register: '+str(lawdata.name))
+                        break
+                print('register: '+str(lawdata.name))
             else:
                 print(output)
 
