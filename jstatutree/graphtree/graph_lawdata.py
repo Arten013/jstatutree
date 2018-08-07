@@ -261,19 +261,10 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
                 future.processing_path_list_id = i
                 futures.append(future)
                 print('proc-future', i, 'submitted')
-            waited = concurrent.futures.wait(futures, timeout=3*60//workers)
+            waited = concurrent.futures.wait(futures, timeout=5*60//workers)
             done, not_done = list(waited.done), list(waited.not_done)
-            if len(done) == 0:
-                print('registering timeout')
-                for future in not_done:
-                    if future.done():
-                        done.append(future)
-                        continue
-                    future.cancel()
-                if len(done) == 0:
-                    break
             remains.extend(get_future_results(done))
-            remains.extend(get_future_results(not_done))
+            remains.extend(get_future_results(not_done), timeout=0)
 
 
 
