@@ -221,10 +221,6 @@ import concurrent
 
 DEFAULT_MAX_CHUNK_SIZE = 500
 def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count(), max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
-    all_path_list = list(find_all_files(basepath, [".xml"]))
-    path_count = len(all_path_list)
-    chunk_size = min(max_chunk_size, path_count//workers)
-    path_lists = [all_path_list[i:min(i+chunk_size, path_count)] for i in range(0, path_count, chunk_size)]
     def get_future_results(futures, timeout=None):
         cancelled = []
         for future in futures:
@@ -248,27 +244,35 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
         return cancelled
     remains = None
     while remains is None or len(remains):
-        if remains is not None:
-            path_lists = split_list(remains, workers)
+        all_path_list = list(find_all_files(basepath, [".xml"])) if remains is None else remains
         remains = []
-        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as proc_exec:
-            futures = []
-            for i in range(len(path_lists)):
-                future = proc_exec.submit(
-                            register_from_pathlist,
-                            pathlist=path_lists[i],
-                            loginkey=loginkey,
-                            levels=levels,
-                            only_reiki=only_reiki,
-                            only_sentence=only_sentence
-                        )
-                future.processing_path_list_id = i
-                futures.append(future)
-                print('proc-future', i, 'submitted')
-            waited = concurrent.futures.wait(futures, timeout=chunk_size)
-            done, not_done = list(waited.done), list(waited.not_done)
-            remains.extend(get_future_results(done))
-            remains.extend(get_future_results(not_done, timeout=0))
+        path_count = len(all_path_list)
+        chunk_size = min(max_chunk_size, min(1, path_count//workers))
+        path_lists = [all_path_list[i:min(i+chunk_size, path_count)] for i in range(0, path_count, chunk_size)]
+        chunk_count = len(path_lists)
+        for j in range(chunk_count//workers):
+            print('iter', j)
+            with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as proc_exec:
+                futures = []
+                for i in range(workers):
+                    target_chunk_index = i + j*workers
+                    if target_chunk_index >= chunk_count:
+                        break
+                    future = proc_exec.submit(
+                                register_from_pathlist,
+                                pathlist=path_lists[target_chunk_index],
+                                loginkey=loginkey,
+                                levels=levels,
+                                only_reiki=only_reiki,
+                                only_sentence=only_sentence
+                            )
+                    future.processing_path_list_id = target_chunk_index
+                    futures.append(future)
+                    print('proc-future', i, 'submitted')
+                waited = concurrent.futures.wait(futures, timeout=chunk_size*workers/3)
+                done, not_done = list(waited.done), list(waited.not_done)
+                remains.extend(get_future_results(done))
+                remains.extend(get_future_results(not_done, timeout=0))
 
 
 
