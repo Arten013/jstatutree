@@ -47,9 +47,9 @@ class GDBReikiData(ReikiData):
         return self.node['file_code']
 from time import sleep
 class JStatutreeGDB(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, max_retry=50, *args, **kwargs):
         exc = None
-        for i in range(50):
+        for i in range(max_retry):
             try:
                 self.db = GraphDatabase(*args, **kwargs)
                 print('connected (retried {} times)'.format(i))
@@ -59,6 +59,7 @@ class JStatutreeGDB(object):
                 continue
             break
         else:
+            print('failed to connect neo4j server(retried {} times)'.format(max_retry))
             raise exc
 
     def get_properties(self, node_id):
@@ -119,8 +120,6 @@ class ReikiGDB(JStatutreeGDB):
                 # print('skip', query)
                 # print(exc)
                 pass
-
-
 
     def reg_governments(self, code):
         if int(code) >= 10000:
@@ -193,10 +192,7 @@ class ReikiGDB(JStatutreeGDB):
             UNION ALL MATCH (muni:Municipalities)
             RETURN muni.code AS gcode, muni AS gnode;
             """
-        govs = {}
-        for gcode, gnode in self.db.query(query, returns=[str, Node]):
-            govs[gcode] = gnode
-        return govs
+        return {res[0]: res[1] for res in self.db.query(query, returns=[str, Node])}
 
 class GDBReaderBase(SourceInterface):
     def __init__(self, code, db):
@@ -225,6 +221,27 @@ import concurrent
 
 def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count()):
     path_lists = split_list(list(find_all_files(basepath, [".xml"])), workers)
+    def get_future_results(futures, timeout=None):
+        cancelled = []
+        for future in futures:
+            print('proc-future', future.processing_path_list_id, 'finished')
+            try:
+                future.result(timeout=timeout)
+                print('proc-future', future.processing_path_list_id, 'succeed')
+            except concurrent.futures.TimeoutError:
+                print('proc-future', future.processing_path_list_id, 'timeout and retry')
+                cancelled.extend(path_lists[future.processing_path_list_id])
+            except concurrent.futures.CancelledError:
+                print('proc-future', future.processing_path_list_id, 'canncelled and retry')
+                cancelled.extend(path_lists[future.processing_path_list_id])
+            except KeyError:
+                print('proc-future', future.processing_path_list_id, 'raised and retry')
+                cancelled.extend(path_lists[future.processing_path_list_id])
+            except Exception:
+                print('proc-future', future.processing_path_list_id, 'raised and retry')
+                traceback.print_exc()
+                cancelled.extend(path_lists[future.processing_path_list_id])
+        return cancelled
     remains = None
     while remains is None or len(remains):
         if remains is not None:
@@ -244,14 +261,22 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
                 future.processing_path_list_id = i
                 futures.append(future)
                 print('proc-future', i, 'submitted')
-            for future in concurrent.futures.as_completed(futures):
-                print('proc-future', future.processing_path_list_id, 'finished')
-                try:
-                    future.result()
-                    print('proc-future', future.processing_path_list_id, 'succeed')
-                except Exception:
-                    remains.extend(path_lists[future.processing_path_list_id])
-                    print('proc-future', future.processing_path_list_id, 'retry')
+            waited = concurrent.futures.wait(futures, timeout=3*60//workers)
+            done, not_done = list(waited.done), list(waited.not_done)
+            if len(done) == 0:
+                print('registering timeout')
+                for future in not_done:
+                    if future.done():
+                        done.append(future)
+                        continue
+                    future.cancel()
+                if len(done) == 0:
+                    break
+            remains.extend(get_future_results(done))
+            remains.extend(get_future_results(not_done))
+
+
+
 def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence):
     gdb = ReikiGDB(**loginkey)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -279,9 +304,16 @@ def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence
         for future in concurrent.futures.as_completed(futures):
             result, output, lawdata = future.result()
             if result:
-                gdb.reg_lawdata(lawdata)
-                gdb.db.query(output)
-                print('register: '+str(lawdata.name))
+                commited = False
+                with gdb.db.transaction(for_query=True) as tx:
+                    try:
+                        gdb.reg_lawdata(lawdata)
+                        gdb.db.query(output)
+                        tx.commit()
+                        commited=True
+                    except Exception:
+                        traceback.print_exc()
+                commited and print('register: '+str(lawdata.name))
             else:
                 print(output)
 
