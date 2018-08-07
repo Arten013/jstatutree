@@ -219,8 +219,12 @@ def split_list(alist, wanted_parts=1):
 import concurrent
 
 
-def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count()):
-    path_lists = split_list(list(find_all_files(basepath, [".xml"])), workers)
+DEFAULT_MAX_CHUNK_SIZE = 500
+def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count(), max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
+    all_path_list = list(find_all_files(basepath, [".xml"]))
+    path_count = len(all_path_list)
+    chunk_size = min(max_chunk_size, path_count//workers)
+    path_lists = [all_path_list[i:min(i+chunk_size, path_count)] for i in range(0, path_count, chunk_size)]
     def get_future_results(futures, timeout=None):
         cancelled = []
         for future in futures:
@@ -249,7 +253,7 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
         remains = []
         with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as proc_exec:
             futures = []
-            for i in range(workers):
+            for i in range(len(path_lists)):
                 future = proc_exec.submit(
                             register_from_pathlist,
                             pathlist=path_lists[i],
@@ -261,10 +265,10 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
                 future.processing_path_list_id = i
                 futures.append(future)
                 print('proc-future', i, 'submitted')
-            waited = concurrent.futures.wait(futures, timeout=5*60//workers)
+            waited = concurrent.futures.wait(futures, timeout=chunk_size)
             done, not_done = list(waited.done), list(waited.not_done)
             remains.extend(get_future_results(done))
-            remains.extend(get_future_results(not_done), timeout=0)
+            remains.extend(get_future_results(not_done, timeout=0))
 
 
 
@@ -272,7 +276,7 @@ def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence
     gdb = ReikiGDB(**loginkey)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
-        for path in pathlist: 
+        for path in pathlist:
             reader=xml_lawdata.ReikiXMLReader(path)
             if gdb.load_lawdata(reader.lawdata.municipality_code, reader.lawdata.file_code) is not None:
                  print('skip(exists): '+str(reader.lawdata.name))
