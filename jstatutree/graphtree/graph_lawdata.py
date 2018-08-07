@@ -219,7 +219,7 @@ def split_list(alist, wanted_parts=1):
 import concurrent
 
 
-DEFAULT_MAX_CHUNK_SIZE = 500
+DEFAULT_MAX_CHUNK_SIZE = 50
 def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count(), max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
     def get_future_results(futures, timeout=None):
         cancelled = []
@@ -269,7 +269,7 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
                     future.processing_path_list_id = target_chunk_index
                     futures.append(future)
                     print('proc-future', i, 'submitted')
-                waited = concurrent.futures.wait(futures, timeout=chunk_size*workers/3)
+                waited = concurrent.futures.wait(futures, timeout=chunk_size*2)
                 done, not_done = list(waited.done), list(waited.not_done)
                 remains.extend(get_future_results(done))
                 remains.extend(get_future_results(not_done, timeout=0))
