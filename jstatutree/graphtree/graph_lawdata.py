@@ -247,7 +247,7 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
         all_path_list = list(find_all_files(basepath, [".xml"])) if remains is None else remains
         remains = []
         path_count = len(all_path_list)
-        chunk_size = min(max_chunk_size, min(1, path_count//workers))
+        chunk_size = min(max_chunk_size, max(1, path_count//workers))
         path_lists = [all_path_list[i:min(i+chunk_size, path_count)] for i in range(0, path_count, chunk_size)]
         chunk_count = len(path_lists)
         for j in range(chunk_count//workers):
