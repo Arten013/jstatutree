@@ -149,8 +149,8 @@ class ReikiGDB(JStatutreeGDB):
             """
             record = tx.run(query, code=code_str)[0]
             mcode, pcode = record['m.code'], record['p.code']
-            mcode not in self.governments and self.governments.append(mcode)
-            pcode not in self.governments and self.governments.append(pcode)
+            mcode not in self.governments and self.__class__.governments.append(mcode)
+            pcode not in self.governments and self.__class__.governments.append(pcode)
             print('reg gov:', mcode)
         else:
             code_str = '{0:02}'.format(int(code))
@@ -165,7 +165,7 @@ class ReikiGDB(JStatutreeGDB):
             """
             record = tx.run(query, code=code_str)[0]
             pcode = record['p.code']
-            pcode not in self.governments and self.governments.append(pcode)
+            pcode not in self.governments and self.__class__.governments.append(pcode)
             print('reg gov:', pcode)
 
     def reg_lawdata(self, lawdata):
@@ -215,38 +215,59 @@ class ReikiGDB(JStatutreeGDB):
             result = session.run(query)
         return GDBReikiData(result[0]['stat']) if len(result)==1 else None
     
-    def register_reiki(lawdata, cyphers):
-        with gdb.driver.session() as session:
+    def register_reiki(self, lawdata, cypherizer):
+        with self.gdb.driver.session() as session:
             lawdata_id = session.write_transaction(self.reg_lawdata, lawdata)
             # print('hoge:', lawdata_id)
-            query = cyphers[0].query('Statutories', lawdata_id)
-            res = list(session.write_transaction(**query)[0])
-            node_infos = {
-                    res[3*i]: {
-                        'parent_node_label': res[3*i+1]+'s',
-                        'parent_node_id': str(res[3*i+2])
-                        }
-                    for i in range(len(res)//3)
+            cypher_generator = cypherizer.gen_cyphers(lawdata_id):
+            query = next(cypher_generator)
+            while query is not None:
+                query = cypher_generator.send(session.run(query).single())
+            session.write_transaction.(self.mark_tree, lawdata_id)
+
+from queue import Queue
+class TreeCypherizer(object):
+    def __init__(self, levels, valid_vnode=True, tx_size_limit=20):
+        self.levels = levels
+        self.valid_vnode = valid_vnode
+        self.tx_size_limit = tx_size_limit
+        self.queue = Queue()
+
+    def cypher_result_map(self, result):
+        return {
+                res[3*i]: {
+                    'parent_node_label': res[3*i+1]+'s',
+                    'parent_node_id': str(res[3*i+2])
                     }
-            for cypher in cyphers[1:]:
-                from pprint import pprint
-                # pprint(node_infos)
-                query = cypher.query(**node_infos[str(cypher.require_node)])
-                res = list(gdb.db.query(**query)[0])
-                node_infos.update({
-                    res[3*i]: {
-                        'parent_node_label': res[3*i+1]+'s',
-                        'parent_node_id': str(res[3*i+2])
-                        }
-                    for i in range(len(res)//3)
-                    })
-            gdb.db.query("""
-                    MATCH (n:Statutories{id: '%s'})
-                    WITH n
-                    LIMIT 1
-                    SET n.tree='exists';
-                    """ % lawdata_id)
-                            break
+                for i in range(len(res)//3)
+                }
+
+    def gen_cyphers(self, lawdata_id):
+        node_infos = self.cypher_result_map(yield self.queue.get().query('Statutories', lawdata_id))
+        while not self.queue.empty:
+            cypher = self.queue.get()
+            node_infos.update(yield cypher.query(**node_infos[str(cypher.require_node)])
+        yield None
+
+    def cypherize(self, root):
+        assert self.queue.empty(), 'You must finish generating previous cyphers before you set another.'
+        self.node_num = 0
+        cypher = TreeCypher(self, 'lawdata_node')
+        nodes = root.depth_first_iteration(self.levels, valid_vnode=self.valid_vnode)
+        cypher.add_root(next(nodes))
+        for node in nodes:
+            if cypher.add_node(node):
+                continue
+            self.cyphers.put(cypher)
+            cypher = TreeCypher(self)
+            cypher.add_root(node)
+        self.cyphers.put(cypher)
+
+    def get_node_num(self):
+        ret = self.node_num
+        self.node_num += 1
+        return self.node_num
+
 class GDBReaderBase(SourceInterface):
     def __init__(self, code, db):
         self.code = code
@@ -424,33 +445,6 @@ def cypher_node_edge(srcnode, tarnode):
 
 
 
-
-class TreeCypherizer(object):
-    def __init__(self, levels, valid_vnode=True, tx_size_limit=20):
-        self.levels = levels
-        self.valid_vnode = valid_vnode
-        self.tx_size_limit = tx_size_limit
-        self.node_num = 0
-
-    def iter_subtree_cyphers(self, root):
-        cypher = TreeCypher(self, 'lawdata_node')
-        nodes = root.depth_first_iteration(self.levels, valid_vnode=self.valid_vnode)
-        # print([str(node) for node in nodes])
-        # exit()
-        cypher.add_root(next(nodes))
-        for node in nodes:
-            if cypher.add_node(node):
-                continue
-            yield cypher
-            cypher = TreeCypher(self)
-            cypher.add_root(node)
-        yield cypher
-        raise StopIteration
-
-    def get_node_num(self):
-        ret = self.node_num
-        self.node_num += 1
-        return self.node_num
 
 class TreeCypher(object):
     def __init__(self, cypherizer, require_node=None):
