@@ -51,7 +51,8 @@ class JStatutreeGDB(object):
         exc = None
         for i in range(max_retry):
             try:
-                self.db = GraphDatabase(*args, **kwargs)
+                # self.db = GraphDatabase(*args, **kwargs)
+                self.driver = GraphDatabase.driver("bolt://localhost:7687")
                 print('connected (retried {} times)'.format(i))
             except Exception as e:
                 exc = e
@@ -62,77 +63,92 @@ class JStatutreeGDB(object):
             print('failed to connect neo4j server(retried {} times)'.format(max_retry))
             raise exc
 
-    def get_properties(self, node_id):
-        return self.db.node[node_id].properties
+    # def get_properties(self, node_id):
+        # return self.db.node[node_id].properties
 
-    def find_children(self, node_id):
-        parent_node = self.db.node[node_id].Child
-        for rel in parent_node.relationships.outgoing(['Children']):
-            yield rel.end
+    # def find_children(self, node_id):
+        # parent_node = self.db.node[node_id].Child
+        # for rel in parent_node.relationships.outgoing(['Children']):
+            # yield rel.end
 
-    def reg_lawdata(self, lawdata):
-        return self.db.nodes.create(code=lawdata.code, name=lawdata.name, lawnum=lawdata.lawnum)
+    # def reg_lawdata(self, lawdata):
+    #     return self.db.nodes.create(code=lawdata.code, name=lawdata.name, lawnum=lawdata.lawnum)
 
 
 class ReikiGDB(JStatutreeGDB):
     INDEX_TYPE = {
             'Prefectures': {
-                'attrs': 'code',
+                'attrs': ['code'],
                 'constraint': "UNIQUE"
                 },
             'Municipalities': {
-                'attrs': 'code',
+                'attrs': ['code'],
                 'constraint': "UNIQUE"
                 },
             'Statutories': {
-                'attrs': ['code', 'lawnum', 'name'],
-                'constraint': None
+                'attrs': ['code'],
+                'constraint': 'UNIQUE'
+                }
+            'Elements': {
+                'attrs': ['id'],
+                'constraint': 'UNIQUE'
                 }
             }
-
+    governments = []
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.init_db()
-        self.governments = []
+        with self.driver.session() as session:
+            session.write_transaction(self.init_db)
+            session.read_transaction(self.load_govs)
 
-    def init_db(self):
-        query = ''
-        for name, config in self.INDEX_TYPE.items():
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        self.driver.close()
+
+    @classmethod
+    def init_db(cls, tx):
+        for name, config in cls.INDEX_TYPE.items():
             if config['constraint'] == 'UNIQUE':
-                query = 'CREATE CONSTRAINT ON (n:{name}) ASSERT n.{attr} IS UNIQUE;'.format(
-                        name=name,
-                        attr=config['attrs']
-                        )
-            elif config['constraint'] == 'NODE KEY':
-                query = 'CREATE CONSTRAINT ON (n:{name}) ASSERT ({attrs}) IS NODE KEY;'.format(
-                        name=name,
-                        attrs=", ".join(map(lambda x: "n."+x, config['attrs']))
-                        )
+                query = 'CREATE CONSTRAINT ON (n:{$name}) ASSERT n.{$attr} IS UNIQUE;'
+                kwargs = {'name': name, attr: config['attrs'][0]}
             else:
-                query = 'CREATE INDEX ON :{name}({attrs});\n'.format(
-                    name=name,
-                    attrs=", ".join(config['attrs'])
-                        )
+                query = 'CREATE INDEX ON :{name}({attrs});\n'
+                kwargs = {'name': name, attr: ", ".join(config['attrs']}
             try:
-                self.db.query(query)
-                # print('executed', query)
+                tx.run(query, **kwargs)
             except Exception as exc:
-                # print('skip', query)
-                # print(exc)
+                print('skip', query)
+                print(exc)
                 pass
 
-    def reg_governments(self, code):
+    @classmethod
+    def load_govs(cls, tx):
+        query = """
+            MATCH (pref:Prefectures)
+            RETURN pref.code AS gcode
+            UNION ALL MATCH (muni:Municipalities)
+            RETURN muni.code AS gcode;
+            """
+        self.__class__governments = list(set(
+                self.__class__.governments.extend([res['gcode'] for res in tx.run(query)})
+            ))
+
+    @classmethod
+    def reg_governments(self, tx, code):
         if int(code) >= 10000:
             code_str = '{0:06}'.format(int(code))
             if code_str in self.governments:
                 return
             query = """
-                merge (m:Municipalities{code: '%s'})
+                merge (m:Municipalities{code: $code})
                 merge (p:Prefectures{code: left(m.code, 2)})
                 merge (p)-[:PREF_OF]->(m)
                 return m.code, p.code
-            """ % code_str
-            mcode, pcode = self.db.query(query, returns=[str, str])[0]
+            """
+            record = tx.run(query, code=code_str)[0]
+            mcode, pcode = record['m.code'], record['p.code']
             mcode not in self.governments and self.governments.append(mcode)
             pcode not in self.governments and self.governments.append(pcode)
             print('reg gov:', mcode)
@@ -144,14 +160,16 @@ class ReikiGDB(JStatutreeGDB):
             if code_str in self.governments:
                 return
             query = """
-                MERGE (p:Prefectures{code: '%s'}
+                MERGE (p:Prefectures{code: $code}
                 RETURN p.code
-            """ % code_str
-            pcode = self.db.query(query, returns=[str])[0]
+            """
+            record = tx.run(query, code=code_str)[0]
+            pcode = record['p.code']
             pcode not in self.governments and self.governments.append(pcode)
             print('reg gov:', pcode)
 
     def reg_lawdata(self, lawdata):
+        with self.driver.session as session
         self.reg_governments(lawdata.municipality_code)
         query = """
             MATCH (m:Municipalities{code: '%s'})
@@ -166,7 +184,8 @@ class ReikiGDB(JStatutreeGDB):
         res = self.db.query(query, returns=[str, bool])
         return res[0][0] if res[0][1] else None
     
-    def clean_broken_tree(self, node_id=None):
+    @classmethod
+    def clean_broken_tree(cls, tx, node_id=None):
         query = """
                 MATCH (n:Statutories{tree: 'not_exists'})%s
                 WITH n
@@ -174,7 +193,16 @@ class ReikiGDB(JStatutreeGDB):
                 DETACH DELETE n
                 DETACH DELETE m
             """ % ('' if node_id is None else """\n                WHERE n.id='{}'""".format(node_id))
-        self.db.query(query)
+        tx.run(query)
+
+    @classmethod
+    def mark_tree(cls, tx, statutory_node_id):
+        tx.run("""
+                MATCH (n:Statutories{id: $node_id})
+                WITH n
+                LIMIT 1
+                SET n.tree='exists';
+                """, node_id=statutory_node_id)
 
     def load_lawdata(self, muni_code, file_code):
         query = """
@@ -183,27 +211,42 @@ class ReikiGDB(JStatutreeGDB):
             WHERE muni.code='{mc:06}' AND stat.code='{sc:04}'
             RETURN stat
                 """.format(mc=int(muni_code), sc=int(file_code))
-        node = self.db.query(query)
-        return GDBReikiData(node[0]) if len(node)==1 else None
-
-    #def link_govs(self):
-    #    query = """
-    #        MATCH (pref:Prefectures), (muni:Municipalities)
-    #        WHERE NOT pref-[:PREF_OF]->muni
-    #        AND pref.code*10000 < muni.code AND (pref.code+1)*10000 > muni.code
-    #        CREATE (pref)-[:PREF_OF]->(muni)
-    #    """
-    #    self.db.query(query)
-
-    def load_govs(self):
-        query = """
-            MATCH (pref:Prefectures)
-            RETURN pref.code AS gcode, pref AS gnode
-            UNION ALL MATCH (muni:Municipalities)
-            RETURN muni.code AS gcode;
-            """
-        return {res[0] for res in self.db.query(query, returns=[str, Node])}
-
+        with self.driver.session() as session:
+            result = session.run(query)
+        return GDBReikiData(result[0]['stat']) if len(result)==1 else None
+    
+    def register_reiki(lawdata, cyphers):
+        with gdb.driver.session() as session:
+            lawdata_id = session.write_transaction(self.reg_lawdata, lawdata)
+            # print('hoge:', lawdata_id)
+            query = cyphers[0].query('Statutories', lawdata_id)
+            res = list(session.write_transaction(**query)[0])
+            node_infos = {
+                    res[3*i]: {
+                        'parent_node_label': res[3*i+1]+'s',
+                        'parent_node_id': str(res[3*i+2])
+                        }
+                    for i in range(len(res)//3)
+                    }
+            for cypher in cyphers[1:]:
+                from pprint import pprint
+                # pprint(node_infos)
+                query = cypher.query(**node_infos[str(cypher.require_node)])
+                res = list(gdb.db.query(**query)[0])
+                node_infos.update({
+                    res[3*i]: {
+                        'parent_node_label': res[3*i+1]+'s',
+                        'parent_node_id': str(res[3*i+2])
+                        }
+                    for i in range(len(res)//3)
+                    })
+            gdb.db.query("""
+                    MATCH (n:Statutories{id: '%s'})
+                    WITH n
+                    LIMIT 1
+                    SET n.tree='exists';
+                    """ % lawdata_id)
+                            break
 class GDBReaderBase(SourceInterface):
     def __init__(self, code, db):
         self.code = code
@@ -327,36 +370,6 @@ def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence
                 for i in range(5):
                     lawdata_id = None
                     try:
-                        lawdata_id = gdb.reg_lawdata(lawdata)
-                        # print('hoge:', lawdata_id)
-                        query = cyphers[0].query('Statutories', lawdata_id)
-                        res = list(gdb.db.query(**query)[0])
-                        node_infos = {
-                                res[3*i]: {
-                                    'parent_node_label': res[3*i+1]+'s',
-                                    'parent_node_id': str(res[3*i+2])
-                                    }
-                                for i in range(len(res)//3)
-                                }
-                        for cypher in cyphers[1:]:
-                            from pprint import pprint
-                            # pprint(node_infos)
-                            query = cypher.query(**node_infos[str(cypher.require_node)])
-                            res = list(gdb.db.query(**query)[0])
-                            node_infos.update({
-                                res[3*i]: {
-                                    'parent_node_label': res[3*i+1]+'s',
-                                    'parent_node_id': str(res[3*i+2])
-                                    }
-                                for i in range(len(res)//3)
-                                })
-                        gdb.db.query("""
-                                MATCH (n:Statutories{id: '%s'})
-                                WITH n
-                                LIMIT 1
-                                SET n.tree='exists';
-                                """ % lawdata_id)
-                        break
                     except Exception as e:
                         sleep(0.1)
                         exception = e
