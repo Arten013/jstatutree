@@ -93,7 +93,7 @@ class ReikiGDB(JStatutreeGDB):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_db()
-        self.governments = self.load_govs()
+        self.governments = []
 
     def init_db(self):
         query = ''
@@ -130,12 +130,12 @@ class ReikiGDB(JStatutreeGDB):
                 merge (m:Municipalities{code: '%s'})
                 merge (p:Prefectures{code: left(m.code, 2)})
                 merge (p)-[:PREF_OF]->(m)
-                return m, p
+                return m.code, p.code
             """ % code_str
-            mnode, pnode = self.db.query(query, returns=[Node, Node])[0]
-            self.governments[mnode['code']] = mnode
-            self.governments[pnode['code']] = pnode
-            print('reg gov:', mnode['code'])
+            mcode, pcode = self.db.query(query, returns=[str, str])[0]
+            mcode not in self.governments and self.governments.append(mcode)
+            pcode not in self.governments and self.governments.append(pcode)
+            print('reg gov:', mcode)
         else:
             code_str = '{0:02}'.format(int(code))
             if code_str in self.governments:
@@ -145,35 +145,35 @@ class ReikiGDB(JStatutreeGDB):
                 return
             query = """
                 MERGE (p:Prefectures{code: '%s'}
-                RETURN p
+                RETURN p.code
             """ % code_str
-            pnode = self.db.query(query)[0]
-            self.governments[pnode['code']] = pnode
-            print('reg gov:', pnode['code'])
+            pcode = self.db.query(query, returns=[str])[0]
+            pcode not in self.governments and self.governments.append(pcode)
+            print('reg gov:', pcode)
 
     def reg_lawdata(self, lawdata):
         self.reg_governments(lawdata.municipality_code)
         query = """
             MATCH (m:Municipalities{code: '%s'})
-            MERGE (s:Statutories{code: '%s', name: '%s', lawnum: '%s', tree: 'not_exists'})
+            MERGE (s:Statutories{code: '%s', name: '%s', lawnum: '%s', id:'%s', tree: 'not_exists'})
             ON CREATE SET s.created='true'
             ON MATCH SET s.created='false'
             MERGE (m)-[:MUNI_OF]->(s)
             WITH s, s.created AS created
             REMOVE s.created
-            RETURN s, created
-        """ % (lawdata.municipality_code, lawdata.file_code, lawdata.name, lawdata.lawnum)
-        res = self.db.query(query, returns=[Node, bool])
+            RETURN s.id, created
+        """ % (lawdata.municipality_code, lawdata.file_code, lawdata.name, lawdata.lawnum, lawdata.code)
+        res = self.db.query(query, returns=[str, bool])
         return res[0][0] if res[0][1] else None
     
-    def clean_broken_tree(self, node=None):
+    def clean_broken_tree(self, node_id=None):
         query = """
                 MATCH (n:Statutories{tree: 'not_exists'})%s
                 WITH n
                 MATCH (n)-[*]->(m)
                 DETACH DELETE n
                 DETACH DELETE m
-            """ % ('' if node is None else """\n                WHERE ID(n)={}""".format(node.id))
+            """ % ('' if node_id is None else """\n                WHERE n.id='{}'""".format(node_id))
         self.db.query(query)
 
     def load_lawdata(self, muni_code, file_code):
@@ -200,9 +200,9 @@ class ReikiGDB(JStatutreeGDB):
             MATCH (pref:Prefectures)
             RETURN pref.code AS gcode, pref AS gnode
             UNION ALL MATCH (muni:Municipalities)
-            RETURN muni.code AS gcode, muni AS gnode;
+            RETURN muni.code AS gcode;
             """
-        return {res[0]: res[1] for res in self.db.query(query, returns=[str, Node])}
+        return {res[0] for res in self.db.query(query, returns=[str, Node])}
 
 class GDBReaderBase(SourceInterface):
     def __init__(self, code, db):
@@ -229,7 +229,7 @@ def split_list(alist, wanted_parts=1):
 import concurrent
 
 
-DEFAULT_MAX_CHUNK_SIZE = 50
+DEFAULT_MAX_CHUNK_SIZE = 30
 def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentence=True, workers=multiprocessing.cpu_count(), max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
     def get_future_results(futures, timeout=None):
         cancelled = []
@@ -274,139 +274,27 @@ def register_directory(loginkey, levels, basepath, only_reiki=True, only_sentenc
                                 loginkey=loginkey,
                                 levels=levels,
                                 only_reiki=only_reiki,
-                                only_sentence=only_sentence
+                                only_sentence=only_sentence,
+                                user_num=target_chunk_index
                             )
                     future.processing_path_list_id = target_chunk_index
                     futures.append(future)
-                    print('proc-future', i, 'submitted')
+                    print('proc-future', target_chunk_index, 'submitted')
                 waited = concurrent.futures.wait(futures, timeout=chunk_size*2)
                 done, not_done = list(waited.done), list(waited.not_done)
                 remains.extend(get_future_results(done))
-                remains.extend(get_future_results(not_done, timeout=0))
+                for future in not_done:
+                    if future.done():
+                        continue
+                    future.cancel()
+                remains.extend(get_future_results(not_done))
+        # workers=1
 
 
-def cypher_node_name(node):
-    return re.sub('[()]', '', re.sub('/', '_', node.code[15:]))
-
-def cypher_node_edge(srcnode, tarnode):
-    src_node_name = srcnode if isinstance(srcnode, str) else cypher_node_name(srcnode)
-    tar_node_name = tarnode if isinstance(tarnode, str) else cypher_node_name(tarnode)
-    return '(%s)-[:HAS_ELEM]->(%s)' % (src_node_name, tar_node_name)
-
-def create_cypher(node):
-    return ''.join([
-        """(%s:%s{""" % (cypher_node_name(node), node.etype.__name__ + 's'),
-        """name: '%s',""" % (node.name if node.name!='' else node.etype.__name__),
-        """fullname: '%s',""" % str(node),
-        """num: '%s',""" % str(node.num.num),
-        """text: '%s',""" % node.text, #(node.text if len(node.text) < 5 else node.text[:5]),
-        """fulltext: '%s',""" % ''.join(node.iter_sentences()),#[:5],
-        """etype: '%s'""" % node.etype.__name__,
-        """})"""
-        ])
-
-
-class TreeCypherizer(object):
-    def __init__(self, levels, valid_vnode=True, tx_size_limit=20):
-        self.levels = levels
-        self.valid_vnode = valid_vnode
-        self.tx_size_limit = tx_size_limit
-
-    def iter_subtree_cyphers(self, root):
-        cypher = TreeCypher(self.tx_size_limit, self.levels, 'lawdata_node')
-        nodes = root.depth_first_iteration(self.levels, valid_vnode=self.valid_vnode)
-        # print([str(node) for node in nodes])
-        # exit()
-        cypher.add_root(next(nodes))
-        for node in nodes:
-            if cypher.add_node(node):
-                continue
-            yield cypher
-            cypher = TreeCypher(self.tx_size_limit, self.levels)
-            cypher.add_root(node)
-        yield cypher
-        raise StopIteration
-
-class TreeCypher(object):
-    def __init__(self, tx_size_limit, levels, require_node=None):
-        self.tx_size_limit = tx_size_limit
-        self.levels = levels #[level if isinstance(level, str) else level.__name__ for level in levels]
-        self.nodes = []
-        self.edges = []
-        self.require_node = require_node
-
-    def __len__(self):
-        return len(self.edges) + len(self.nodes)
-
-    def add_root(self, node):
-        if self.require_node == 'lawdata_node':
-            self.nodes.append(node)
-            return
-        parent_node = node.parent.search_nearest_parent(self.levels, valid_vnode=True)
-        assert parent_node is not None, 'Unexpected Error'
-        self.require_node = parent_node
-        self.edges.append((parent_node, node))
-        self.nodes.append(node)
-        return True
-
-    def add_node(self, node):
-        parent_node = node.parent.search_nearest_parent(self.levels, valid_vnode=True)
-        assert parent_node is not None, 'You cannot add root node using add_node()'
-        if len(self) + 2 >= self.tx_size_limit:
-            return False
-        if not parent_node in self.nodes+[self.require_node]:
-            return False
-        self.edges.append((parent_node, node))
-        self.nodes.append(node)
-        return True
-
-    @property
-    def create_node_lines(self):
-        return ',\n\t'.join([create_cypher(n) for n in self.nodes])
-
-    @property
-    def create_edge_lines(self):
-        l = []
-        for n1, n2 in self.edges:
-            if not isinstance(self.require_node, str) and n1 == self.require_node:
-                l.append(cypher_node_edge('pn', n2))
-            else:
-                l.append(cypher_node_edge(n1, n2))
-        return ',\n\t'.join(l)
-
-    @property
-    def return_lines(self):
-        return ',\n\t'.join([
-                "{node_name}.fullname, {node_name}.etype, ID({node_name})".format(
-                        node_name=cypher_node_name(n),
-                    )
-                for n in self.nodes])
-
-    def query(self, parent_node_label, parent_node_id):
-        ret = {
-            'q': """
-            MATCH (pn:{parent_node_label})
-            WHERE ID(pn)={parent_node_id}
-            WITH pn
-            LIMIT 1
-            CREATE {create_node_lines},
-                    {create_edge_lines}
-            MERGE  (pn)-[:HAS_ELEM]->({root_node_name})
-            RETURN {return_lines};""".format(
-                parent_node_label=parent_node_label,
-                parent_node_id=parent_node_id,
-                create_node_lines=self.create_node_lines,
-                create_edge_lines=self.create_edge_lines,
-                root_node_name=cypher_node_name(self.nodes[0]),
-                return_lines=self.return_lines
-            ),
-            'returns': [str, str, str]
-            }
-        # print(ret['q'])
-        return ret
-
-
-def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence):
+from time import sleep
+def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence, user_num):
+    # raise 
+    loginkey['username'] += str(user_num)
     gdb = ReikiGDB(**loginkey)
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
@@ -437,10 +325,11 @@ def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence
                 complete_flag = False
                 exception = None
                 for i in range(5):
-                    lawdata_node = None
+                    lawdata_id = None
                     try:
-                        lawdata_node = gdb.reg_lawdata(lawdata)
-                        query = cyphers[0].query('Statutories', lawdata_node.id)
+                        lawdata_id = gdb.reg_lawdata(lawdata)
+                        # print('hoge:', lawdata_id)
+                        query = cyphers[0].query('Statutories', lawdata_id)
                         res = list(gdb.db.query(**query)[0])
                         node_infos = {
                                 res[3*i]: {
@@ -461,12 +350,18 @@ def register_from_pathlist(pathlist, loginkey, levels, only_reiki, only_sentence
                                     }
                                 for i in range(len(res)//3)
                                 })
-                        lawdata_node['tree'] = 'exists'
+                        gdb.db.query("""
+                                MATCH (n:Statutories{id: '%s'})
+                                WITH n
+                                LIMIT 1
+                                SET n.tree='exists';
+                                """ % lawdata_id)
                         break
                     except Exception as e:
+                        sleep(0.1)
                         exception = e
                         traceback.print_exc()
-                        gdb.clean_broken_tree(lawdata_node)
+                        gdb.clean_broken_tree(lawdata_id)
                 else:
                     raise exception
                 print('register: '+str(lawdata.name))
@@ -503,4 +398,135 @@ def set_from_reader(reader, levels='ALL'):
         ret = False, traceback.format_exc(), None
     finally:
         reader.close()
+        return ret
+
+
+def cypher_node_name(node):
+    return re.sub('[()]', '', re.sub('/', '_', node.code[15:]))
+
+def cypher_node_edge(srcnode, tarnode):
+    src_node_name = srcnode if isinstance(srcnode, str) else cypher_node_name(srcnode)
+    tar_node_name = tarnode if isinstance(tarnode, str) else cypher_node_name(tarnode)
+    return '(%s)-[:HAS_ELEM]->(%s)' % (src_node_name, tar_node_name)
+
+
+
+
+class TreeCypherizer(object):
+    def __init__(self, levels, valid_vnode=True, tx_size_limit=20):
+        self.levels = levels
+        self.valid_vnode = valid_vnode
+        self.tx_size_limit = tx_size_limit
+        self.node_num = 0
+
+    def iter_subtree_cyphers(self, root):
+        cypher = TreeCypher(self, 'lawdata_node')
+        nodes = root.depth_first_iteration(self.levels, valid_vnode=self.valid_vnode)
+        # print([str(node) for node in nodes])
+        # exit()
+        cypher.add_root(next(nodes))
+        for node in nodes:
+            if cypher.add_node(node):
+                continue
+            yield cypher
+            cypher = TreeCypher(self)
+            cypher.add_root(node)
+        yield cypher
+        raise StopIteration
+
+    def get_node_num(self):
+        ret = self.node_num
+        self.node_num += 1
+        return self.node_num
+
+class TreeCypher(object):
+    def __init__(self, cypherizer, require_node=None):
+        self.cypherizer = cypherizer
+        self.tx_size_limit = cypherizer.tx_size_limit
+        self.levels = cypherizer.levels #[level if isinstance(level, str) else level.__name__ for level in levels]
+        self.nodes = []
+        self.edges = []
+        self.require_node = require_node
+
+    def __len__(self):
+        return len(self.edges) + len(self.nodes)
+
+    def create_cypher(self, node):
+        return ''.join([
+            """(%s:%s{""" % (cypher_node_name(node), node.etype.__name__ + 's'),
+            """name: '%s',""" % (node.name if node.name!='' else node.etype.__name__),
+            """fullname: '%s',""" % str(node),
+            """num: '%s',""" % str(node.num.num),
+            """text: '%s',""" % node.text, #(node.text if len(node.text) < 5 else node.text[:5]),
+            """fulltext: '%s',""" % ''.join(node.iter_sentences()),#[:5],
+            """etype: '%s',""" % node.etype.__name__,
+            """id: '%s'""" % (node.lawdata.code+'/'+str(self.cypherizer.get_node_num())),
+            """})"""
+            ])
+
+    def add_root(self, node):
+        if self.require_node == 'lawdata_node':
+            self.nodes.append(node)
+            return
+        parent_node = node.parent.search_nearest_parent(self.levels, valid_vnode=True)
+        assert parent_node is not None, 'Unexpected Error'
+        self.require_node = parent_node
+        self.edges.append((parent_node, node))
+        self.nodes.append(node)
+        return True
+
+    def add_node(self, node):
+        parent_node = node.parent.search_nearest_parent(self.levels, valid_vnode=True)
+        assert parent_node is not None, 'You cannot add root node using add_node()'
+        if len(self) + 2 >= self.tx_size_limit:
+            return False
+        if not parent_node in self.nodes+[self.require_node]:
+            return False
+        self.edges.append((parent_node, node))
+        self.nodes.append(node)
+        return True
+
+    @property
+    def create_node_lines(self):
+        return ',\n\t'.join([self.create_cypher(n) for n in self.nodes])
+
+    @property
+    def create_edge_lines(self):
+        l = []
+        for n1, n2 in self.edges:
+            if not isinstance(self.require_node, str) and n1 == self.require_node:
+                l.append(cypher_node_edge('pn', n2))
+            else:
+                l.append(cypher_node_edge(n1, n2))
+        return ',\n\t'.join(l)
+
+    @property
+    def return_lines(self):
+        return ',\n\t'.join([
+                "{node_name}.fullname, {node_name}.etype, {node_name}.id".format(
+                        node_name=cypher_node_name(n),
+                    )
+                for n in self.nodes])
+
+    def query(self, parent_node_label, parent_node_id):
+        ret = {
+            'q': """
+            MATCH (pn:{parent_node_label})
+            WHERE pn.id = '{parent_node_id}'
+            WITH pn
+            LIMIT 1
+            CREATE {create_node_lines},
+                    {create_edge_lines}
+            MERGE  (pn)-[:HAS_ELEM]->({root_node_name})
+            RETURN {return_lines};""".format(
+                parent_node_label=parent_node_label,
+                parent_node_id=parent_node_id,
+                create_node_lines=self.create_node_lines,
+                create_edge_lines=self.create_edge_lines,
+                root_node_name=cypher_node_name(self.nodes[0]),
+                return_lines=self.return_lines
+            ),
+            'returns': [str, str, str]
+            }
+        # print(ret['q'])
         return ret
