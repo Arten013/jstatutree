@@ -18,39 +18,9 @@ class TreeElement(object):
         self._children = None
         self._text = None
 
-    @property
-    def cypher_node_name(self):
-        # return '_'.join([self.etype.__name__.lower(), str(self.num.main_num)]+[str(n) for n in self.num.branch_nums])
-        return re.sub('[()]', '', re.sub('/', '_', self.code[15:]))
 
-    def subtree_cypher(self, levels, create_statement=True, valid_vnode=True):
-        cypher = "CREATE " if create_statement else '\t'
-        cypher += self.create_cypher(self.cypher_node_name)
-        i = 0
-        while len(levels) > i:
-            if levels[i].LEVEL > self.etype.LEVEL:
-                break
-            i += 1
-        else:
-            return cypher
-        for child in self.depth_first_search(levels[i], valid_vnode=valid_vnode):
-            cypher += ',\n' + child.subtree_cypher(levels[i:], create_statement=False, valid_vnode=valid_vnode)
-            cypher += ',\n\t({node_name})-[:HAS_ELEM]->({child_name})'.format(node_name=self.cypher_node_name, child_name=child.cypher_node_name)
-        return cypher
 
-    def create_cypher(self, name=''):
-        return ''.join([ 
-            """(%s:%s{""" % (name, self.etype.__name__ + 's'),
-            """name: '%s',""" % (self.name if self.name!='' else self.etype.__name__),
-            """fullname: '%s',""" % str(self),
-            """num: '%s',""" % str(self.num.num),
-            """text: '%s',""" % self.text, #(self.text if len(self.text) < 5 else self.text[:5]),
-            """fulltext: '%s',""" % ''.join(self.iter_sentences()),#[:5],
-            """etype: '%s'""" % self.etype.__name__,
-            """})"""
-            ])
     @classmethod
-
     def convert(cls, src_elem):
         tar_elem = cls()
         #print(src_elem)
@@ -211,38 +181,84 @@ class TreeElement(object):
 
         return copy
 
+    def search_nearest_parent(self, levels, valid_vnode=True):
+        for level in levels[::-1]:
+            if level.LEVEL > self.LEVEL:
+                continue
+            parent_node = self.search_parent(level, valid_vnode)
+            if parent_node is not None:
+                return parent_node
+        return None
+
+    def search_parent(self, level, valid_vnode=True):
+        assert issubclass(level, TreeElement), 'argument "level" must be an etype class'+str(level)
+        target_node = self
+        while True:
+            if target_node is None:
+                return None
+            if target_node.etype.LEVEL < level.LEVEL:
+                if valid_vnode:
+                    return target_node.get_virtual_node(level)
+                return None
+            if target_node.etype.LEVEL > level.LEVEL:
+                target_node = target_node.parent
+                continue
+            if target_node.etype.SUBLEVEL != target_node.etype.SUBLEVEL:
+                if valid_vnode:
+                    target_node =target_node.parent
+                    continue
+                return None
+            return target_node
+
     def depth_first_search(self, target_etype, valid_vnode=False):
         assert issubclass(target_etype, TreeElement), "target_etype must be a subclass of TreeElement (given {})".format(target_etype.__class__.__name__)
         #print(target_etype.__name__, target_etype.LEVEL, "vs.", self.etype.__name__, self.etype.LEVEL)
+        # etypeがtargetと同じならそれをyieldして返る
         if target_etype.LEVEL == self.etype.LEVEL:
             if target_etype.SUBLEVEL == self.etype.SUBLEVEL:
                 yield self
                 return
+        # etypeがtargetよりも深いなら返る
         if target_etype.LEVEL < self.etype.LEVEL:
             return
+        # etypeがtargetよりも浅いなら子をチェック
         elif target_etype.LEVEL >= self.etype.LEVEL:
             yielded_flag = False
             iter_flag = False
             for child in sorted(self.children.values()):
                 iter_flag = True
+                # etypeがtargetよりも浅いなら孫をチェック
                 if child.etype.LEVEL < target_etype.LEVEL:
                     yield from child.depth_first_search(target_etype, valid_vnode)
                     yielded_flag = True
+                # etypeがtargetと同じ場合はyield
                 elif child.etype.LEVEL == target_etype.LEVEL:
                     if child.SUBLEVEL == target_etype.SUBLEVEL:
                         yield child
                         yielded_flag = True
+                # etypeがtargetよりも深いなら自身（もしくはそれを元にしたvnode）を返す
                 else:
                     yielded_flag = True
                     if valid_vnode:
                         yield self.get_virtual_node(target_etype)
                         return
                     yield self
+            # 子がいない場合は、可能であれば自身を元にしたvnodeを返す
             if iter_flag and not yielded_flag and valid_vnode:
                 yield self.get_virtual_node(target_etype)
                 return
 
-    def depth_first_iteration(self):
+    def _depth_first_iteration(self, target_etypes, valid_vnode=True):
+        if len(target_etypes) == 0:
+            return self
+        for e in self.depth_first_search(target_etypes[0], valid_vnode):
+            yield e
+            yield from e._depth_first_iteration(target_etypes[1:], valid_vnode)
+
+    def depth_first_iteration(self, target_etypes=None, valid_vnode=True):
+        if target_etypes is not None:
+            yield from self._depth_first_iteration(target_etypes, valid_vnode)
+            return
         yield self
         for child in sorted(self.children.values()):
             yield from child.depth_first_iteration()
@@ -273,6 +289,8 @@ class TreeElement(object):
         assert hasattr(elem, "num"), "cannot compare elements without element number "+str(elem)
 
     def __eq__(self, elem):
+        if not issubclass(elem.__class__, TreeElement):
+            return False
         if id(self) == id(elem):
             return True
         self._comparable_check(elem)
