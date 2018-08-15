@@ -285,20 +285,26 @@ class TreeElement(object):
 
     def _comparable_check(self, elem):
         #assert elem.__class__ in ((self.etype,) + self.BROTHER_CANDIDATES), "cannot compare {} and {}".format(self.etype, elem.__class__)
+        assert issubclass(elem.__class__, TreeElement), "cannot compare TreeElement instance to non-TreeElement instance"
         assert hasattr(self, "num"), "cannot compare elements without element number "+str(self)
         assert hasattr(elem, "num"), "cannot compare elements without element number "+str(elem)
-
+    
+    # 要素をソートするために大小関係定義
+    # 共通の要素までさかのぼって比較
     def __eq__(self, elem):
-        if not issubclass(elem.__class__, TreeElement):
-            return False
+        # 前処理
         if id(self) == id(elem):
             return True
         self._comparable_check(elem)
+
+        # etypeが違うものを弾く
         if self.etype != elem.etype:
             return False
+        # ElementNumberが一致しないものを弾く
         if self.num.num != elem.num.num:
             return False
-        return self.parent == elem.parent
+        # 親の一致を判定
+        return self.parent == elem.parent if not self.is_root() else self.lawdata==elem.lawdata
 
     def __ne__(self, elem):
         return not self == elem
@@ -306,19 +312,19 @@ class TreeElement(object):
     def __lt__(self, elem):
         self._comparable_check(elem)
         if self.etype.LEVEL > elem.etype.LEVEL:
-            return self.parent > elem
+            return self.parent < elem
         elif self.etype.LEVEL < elem.etype.LEVEL:
-            return self > elem.parent
+            return self < elem.parent
         elif self.parent == elem.parent:
             if self.etype.LEVEL != elem.etype.LEVEL:
                 raise HieralchyError(
                     self.lawdata,
                     "Unexpected element occured in the same layer "+str(self.etype)+" "+str(elem.etype)
                     )
-            if self.etype.SUBLEVEL == self.etype.SUBLEVEL:
+            if self.etype.SUBLEVEL == elem.etype.SUBLEVEL:
                 return self.num.num < elem.num.num
             else:
-                return self.etype.SUBLEVEL < self.etype.SUBLEVEL
+                return self.etype.SUBLEVEL < elem.etype.SUBLEVEL
         return self.parent < elem.parent
 
     def __le__(self, elem):
