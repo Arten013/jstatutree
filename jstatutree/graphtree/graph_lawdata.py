@@ -49,20 +49,7 @@ class GDBReikiData(ReikiData):
 from time import sleep
 class JStatutreeGDB(object):
     def __init__(self, *args, **kwargs):
-        exc = None
-        for i in range(50):
-            try:
-                # self.db = GraphDatabase(*args, **kwargs)
-                self.driver = GraphDatabase.driver("bolt://localhost:7687")
-                print('connected (retried {} times)'.format(i))
-            except Exception as e:
-                exc = e
-                sleep(0.1)
-                continue
-            break
-        else:
-            print('failed to connect neo4j server(retried {} times)'.format(max_retry))
-            raise exc
+        self.driver = GraphDatabase.driver("bolt://localhost:7687")
 
     def __del__(self):
         self.close()
@@ -92,7 +79,7 @@ class ReikiGDB(JStatutreeGDB):
                 'constraint': "UNIQUE"
                 },
             'Statutories': {
-                'attrs': ['code'],
+                'attrs': ['id'],
                 'constraint': 'UNIQUE'
                 },
             'Elements': {
@@ -106,9 +93,9 @@ class ReikiGDB(JStatutreeGDB):
         with self.driver.session() as session:
             session.write_transaction(self.init_db)
             ret = session.read_transaction(self.load_govs).values()
-            print(ret)
+            # print(ret)
         cls = self.__class__
-        cls.governments= [res['gcode'] for res in ret]
+        cls.governments= [res[0] for res in ret]
 
     @classmethod
     def init_db(cls, tx):
@@ -146,15 +133,15 @@ class ReikiGDB(JStatutreeGDB):
                 merge (p)-[:PREF_OF]->(m)
                 return m.code, p.code
             """
-            record = tx.run(query, code=code_str)[0]
-            mcode, pcode = record['m.code'], record['p.code']
+            record = tx.run(query, code=code_str).values()[0]
+            mcode, pcode = record
             mcode not in cls.governments and cls.governments.append(mcode)
             pcode not in cls.governments and cls.governments.append(pcode)
-            print('reg gov:', mcode)
+            # print('reg gov:', mcode)
         else:
             code_str = '{0:02}'.format(int(code))
             if code_str in cls.governments:
-                print('skip reg gov: ', code_str)
+                # print('skip reg gov: ', code_str)
                 return
             if code_str in cls.governments:
                 return
@@ -162,25 +149,28 @@ class ReikiGDB(JStatutreeGDB):
                 MERGE (p:Prefectures{code: $code}
                 RETURN p.code
             """
-            record = tx.run(query, code=code_str)[0]
-            pcode = record['p.code']
+            pcode = tx.run(query, code=code_str).values()[0]
             pcode not in cls.governments and cls.governments.append(pcode)
-            print('reg gov:', pcode)
+            # print('reg gov:', pcode)
 
-    def reg_lawdata(self, lawdata):
-        with self.driver.session as session:
-            sessiion.write_transaction(self.reg_governments, lawdata.municipality_code)
-            query = """
-                MATCH (m:Municipalities{code: '%s'})
-                MERGE (s:Statutories{code: '%s', name: '%s', lawnum: '%s', id:'%s', tree: 'not_exists'})
-                ON CREATE SET s.created='true'
-                ON MATCH SET s.created='false'
-                MERGE (m)-[:MUNI_OF]->(s)
-                WITH s, s.created AS created
-                REMOVE s.created
-                RETURN s.id, created
-            """ % (lawdata.municipality_code, lawdata.file_code, lawdata.name, lawdata.lawnum, lawdata.code)
-            res = session.run(query)
+    def reg_lawdata(self, tx, lawdata):
+        # print('fuga')
+        self.reg_governments(tx, lawdata.municipality_code)
+        # print('fuga')
+        # tx.commit()
+        # print('fugafuga')
+        query = """
+            MATCH (m:Municipalities{code: '%s'})
+            MERGE (s:Statutories{code: '%s', name: '%s', lawnum: '%s', id:'%s'})
+            ON CREATE SET s.created='true', s.tree = 'not_exists'
+            ON MATCH SET s.created='false'
+            MERGE (m)-[:MUNI_OF]->(s)
+            WITH s, s.created AS created
+            REMOVE s.created
+            RETURN s.id, created
+        """ % (lawdata.municipality_code, lawdata.file_code, lawdata.name, lawdata.lawnum, lawdata.code)
+        res = tx.run(query).values()
+        # print('fugafuga')
         return res[0][0] if res[0][1] else None
 
     @classmethod
@@ -193,6 +183,8 @@ class ReikiGDB(JStatutreeGDB):
                 DETACH DELETE m
             """ % ('' if node_id is None else """\n                WHERE n.id='{}'""".format(node_id))
         tx.run(query)
+        query = """MATCH (n:Elements) WHERE not( (n)<-[]-() ) DETACH DELETE n"""
+        tx.run(query)
 
     @classmethod
     def mark_tree(cls, tx, statutory_node_id):
@@ -203,7 +195,11 @@ class ReikiGDB(JStatutreeGDB):
                 SET n.tree='exists';
                 """, node_id=statutory_node_id)
 
-    def load_lawdata(self, muni_code, file_code):
+    def load_lawdata(self, muni_code=None, file_code=None, path=None):
+        if path is not None:
+            tmp, file_code = os.path.split(os.path.splitext(path)[0])
+            muni_code = os.path.split(tmp)[1]
+        assert muni_code is not None and file_code is not None, 'Invalid arguments for ReikiGDB.load_lawdata'
         query = """
             MATCH (muni:Municipalities)
                   -[:MUNI_OF]->(stat:Statutories)
@@ -211,15 +207,15 @@ class ReikiGDB(JStatutreeGDB):
             RETURN stat
                 """.format(mc=int(muni_code), sc=int(file_code))
         with self.driver.session() as session:
-            result = session.run(query)
+            result = session.run(query).values()
         if len(result) != 1:
             return None
-        return GDBReikiData(result[0]['stat'])
+        return GDBReikiData(result[0][0])
 
     def check_registered(self, path=None, lawdata=None):
         assert not (path is None and lawdata is None), "You must give an xml path or a lawdata as an argument."
         if path is not None:
-            tmp, fcode = os.path.split(path)
+            tmp, fcode = os.path.split(os.path.splitext(path)[0])
             mcode = os.path.split(tmp)[1]
         else:
             mcode, fcode = lawdata.municipality_code, lawdata.file_code
@@ -229,21 +225,56 @@ class ReikiGDB(JStatutreeGDB):
         cypherizer = TreeCypherizer(levels, valid_vnode, only_reiki, tx_size_limit)
         for path in paths:
             reader=xml_lawdata.ReikiXMLReader(path)
-            lawdata = self.load_lawdata(path)
+            lawdata = self.load_lawdata(path=path)
             if lawdata is None:
                 cypherizer.submit_reader(reader)
             else:
-                print("skip(exists):", lawdata.name)
-        cypher_generator = self.submit_reader(reader)
+                pass
+                # print("skip(exists):", lawdata.name)
+        cypher_generator = cypherizer.submit_reader(reader)
         with self.driver.session() as session:
-            for lawdata, cypher_generator in cypherizer:
-                lawdata_id = session.write_transaction(self.reg_lawdata, lawdata)
-                cypher_generator.send(lawdata_id)
-                while True:
-                    query = cypher_generator.send(session.run(query).single())
-                    if query is None:
-                        break
-                session.write_transaction(cls.mark_tree, lawdata_id)
+            for succeed, returns in cypherizer:
+                if not succeed:
+                    print(returns)
+                    continue
+                lawdata, cypher_generator = returns
+                # print('hoge')
+                queries = []
+                node_infos = next(cypher_generator)
+                try:
+                    lawdata_id = session.write_transaction(self.reg_lawdata, lawdata)
+                    # print('hogehoge')
+                    query = cypher_generator.send(lawdata_id)
+                    while True:
+                        # print(query)
+                        queries.append(query)
+                        for i in range(5):
+                            session_error = None
+                            try:
+                                res = session.run(query).values()
+                                assert len(res) > 0, 'Query execution failed\n'
+                                res = res[0]
+                                break
+                            except Exception as e:
+                                session_error = e
+                                # print(query)
+                                sleep(0.3)
+                                continue
+                        else:
+                            raise session_error
+                        query = cypher_generator.send(res)
+                        if query is None:
+                            break
+                    session.write_transaction(self.mark_tree, lawdata_id)
+                except Exception as err:
+                    print("failure:", lawdata.name)
+                    # for q in queries:
+                    #      print(q)
+                    #      print()
+                    for query in cypherizer.iter_rollback_cyphers(node_infos):
+                        session.run(query)
+                    # session.write_transaction(self.clean_broken_tree)
+                    raise err
                 print("register:", lawdata.name)
 
 class GDBReaderBase(SourceInterface):
@@ -255,7 +286,7 @@ class GDBReaderBase(SourceInterface):
         return ETYPES[0](self.lawdata)
 
     def read_lawdata(self):
-        return self.db.load_lawdata(self.code)
+        return self.db.load_lawdata(self.lawdata.municipality_code, self.lawdata.file_code)
 
     def is_closed(self):
         return False
@@ -276,34 +307,38 @@ def register_directory(levels, basepath, loginkey, workers, only_reiki, only_sen
     writer.submit_paths(basepath)
     writer.run()
 from threading import Thread
-MAX_CHUNK_SIZE = 5
+MAX_CHUNK_SIZE = 10
+MAX_TX_SIZE = 100
 class MultiProcReikiWriter(object):
-    def __init__(self, loginkey, levels, only_reiki=True, only_sentence=True, workers=None, chunk_size=MAX_CHUNK_SIZE):
+    def __init__(self, loginkey, levels, only_reiki=True, only_sentence=True, workers=None, chunk_size=MAX_CHUNK_SIZE, tx_size_limit=MAX_TX_SIZE):
         self.loginkey=loginkey
         self.levels = levels
         self.only_reiki = only_reiki
         self.only_sentence = only_sentence
         self.workers = workers if workers  is not None else multiprocessing.cpu_count()
         self.executors = concurrent.futures.ProcessPoolExecutor(max_workers=self.workers)
-        self.xmlpath_chunks_queue = Queue(100)
+        self.tx_size_limit = tx_size_limit
+        self.xmlpath_chunks_queue = Queue()
         self.chunk_size = chunk_size
-        self.path_submit_queue = Queue(chunk_size*100)
+        self.path_submit_queue = Queue()
         self.enqueue_thread = Thread(target=self.enqueue_paths, daemon=True)
         self.enqueue_thread.start()
 
     def submit_paths(self, *paths):
         for path in paths:
-            print("submit path:", path)
+            # print("submit path:", path)
             self.path_submit_queue.put(path)
 
     def enqueue_paths(self):
-        print("start enqueue thread")
+        # print("start enqueue thread")
         chunk = []
         while True:
             item = self.path_submit_queue.get()
-            if item is None:
+            if item == "Period":
                 len(chunk) > 0 and self.xmlpath_chunks_queue.put(chunk)
-                self.xmlpath_chunks_queue.put(None)
+                chunk = []
+                self.xmlpath_chunks_queue.put("Period")
+                # print("None recieved")
                 continue
             # print("extract path:", item)
             for xml_path in list(find_all_files(item, [".xml"])):
@@ -315,14 +350,16 @@ class MultiProcReikiWriter(object):
                     chunk = []
 
     @staticmethod
-    def exec_main(paths, levels, valid_vnode, only_reiki, chunk_size, loginkey):
-        print("login")
+    def exec_main(paths, levels, valid_vnode, only_reiki, loginkey, tx_size_limit):
+        # print("login")
         gdb = ReikiGDB(loginkey)
-        print("register begin")
-        gdb.register_paths(paths, levels, valid_vnode, only_reiki, chunk_size)
+        # print("register begin")
+        gdb.register_paths(paths, levels, valid_vnode, only_reiki, tx_size_limit)
+        with gdb.driver.session() as session:
+            session.write_transaction(gdb.clean_broken_tree)
 
     def get_future_results(self, futures, timeout=None):
-        put_cancelled = lambda f: self.submit_paths(*f.arg_paths)
+        put_cancelled = lambda f: self.xmlpath_chunks_queue.put(f.arg_paths)
         all_succeeded_flag = True
         for future in futures:
             print('proc-future', future.task_number, 'finished')
@@ -339,6 +376,7 @@ class MultiProcReikiWriter(object):
                 all_succeeded_flag = False
             except KeyError:
                 print('proc-future', future.task_number, 'raised and retry')
+                traceback.print_exc()
                 put_cancelled(future)
                 all_succeeded_flag = False
             except Exception:
@@ -349,21 +387,26 @@ class MultiProcReikiWriter(object):
         return all_succeeded_flag
 
     def end_submit_path(self):
-        self.submit_paths(None)
+        self.submit_paths("Period")
 
     def run(self):
         trial_count = 0
         end_flag = False
         with concurrent.futures.ProcessPoolExecutor(max_workers=self.workers) as proc_exec:
             while not end_flag:
+                trial_count +=1
                 print("trial:", trial_count)
                 task_count = 0
                 futures = []
+                sleep(0.5)
+                assert not self.xmlpath_chunks_queue.empty(), 'You must submit paths before registering'
                 self.end_submit_path()
                 while True:
                     paths = self.xmlpath_chunks_queue.get()
                     # print(paths)
-                    if paths is None:
+                    if paths == 'Period':
+                        assert self.xmlpath_chunks_queue.empty(), 'Invalid path submit process'
+                        # self.xmlpath_chunks_queue.put('hoge')
                         break
                     future = proc_exec.submit(
                                 self.exec_main,
@@ -371,7 +414,7 @@ class MultiProcReikiWriter(object):
                                 levels=self.levels,
                                 valid_vnode=True,
                                 only_reiki=self.only_reiki,
-                                chunk_size=self.chunk_size,
+                                tx_size_limit=self.tx_size_limit,
                                 loginkey=self.loginkey
                             )
                     future.arg_paths = paths
@@ -379,7 +422,7 @@ class MultiProcReikiWriter(object):
                     futures.append(future)
                     # print("submit: task", task_count)
                     task_count += 1
-                print("task wait")
+                # print("task wait")
                 waited = concurrent.futures.wait(futures, timeout=self.chunk_size*len(futures)/self.workers*2)
                 done, not_done = list(waited.done), list(waited.not_done)
                 end_flag = self.get_future_results(done)
