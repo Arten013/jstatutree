@@ -49,7 +49,7 @@ class GDBReikiData(ReikiData):
 from time import sleep
 class JStatutreeGDB(object):
     def __init__(self, *args, **kwargs):
-        self.driver = GraphDatabase.driver(kwargs['bolturl'])
+        self.driver = GraphDatabase.driver(*args, **kwargs)
 
     def __del__(self):
         self.close()
