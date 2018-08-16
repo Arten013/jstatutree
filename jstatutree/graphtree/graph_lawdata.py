@@ -49,7 +49,7 @@ class GDBReikiData(ReikiData):
 from time import sleep
 class JStatutreeGDB(object):
     def __init__(self, *args, **kwargs):
-        self.driver = GraphDatabase.driver("bolt://localhost:7687")
+        self.driver = GraphDatabase.driver(kwargs['bolturl'])
 
     def __del__(self):
         self.close()
@@ -352,7 +352,7 @@ class MultiProcReikiWriter(object):
     @staticmethod
     def exec_main(paths, levels, valid_vnode, only_reiki, loginkey, tx_size_limit):
         # print("login")
-        gdb = ReikiGDB(loginkey)
+        gdb = ReikiGDB(**loginkey)
         # print("register begin")
         gdb.register_paths(paths, levels, valid_vnode, only_reiki, tx_size_limit)
         with gdb.driver.session() as session:
