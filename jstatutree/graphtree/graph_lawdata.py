@@ -401,7 +401,10 @@ class MultiProcReikiWriter(object):
                 print("trial:", trial_count)
                 task_count = 0
                 futures = []
-                sleep(0.5)
+                for i in range(10):
+                    sleep(0.5)
+                    if not self.xmlpath_chunks_queue.empty():
+                        break
                 assert not self.xmlpath_chunks_queue.empty(), 'You must submit paths before registering'
                 self.end_submit_path()
                 while True:
