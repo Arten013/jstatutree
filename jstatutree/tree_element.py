@@ -295,6 +295,8 @@ class TreeElement(object):
         # 前処理
         if id(self) == id(elem):
             return True
+        if not issubclass(elem.__class__, TreeElement):
+            return False
         self._comparable_check(elem)
 
         # etypeが違うものを弾く

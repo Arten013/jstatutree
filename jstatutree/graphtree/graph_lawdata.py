@@ -10,7 +10,7 @@ from . import graph_etypes
 from time import sleep
 import multiprocessing
 import traceback
-from .cypherizer import TreeCypherizer
+from .cypherizer import TreeCypherizer, TreeCypherizeError
 from neo4j.v1 import GraphDatabase
 def find_all_files(directory, extentions=None):
     for root, dirs, files in os.walk(directory):
@@ -259,6 +259,11 @@ class ReikiGDB(JStatutreeGDB):
                         if query is None:
                             break
                     session.write_transaction(self.mark_tree, lawdata_id)
+                except TreeCypherizeError as e:
+                    print('skip(CypherizeError):', lawdata.name)
+                    for query in cypherizer.iter_rollback_cyphers(node_infos):
+                        session.run(query)
+                    continue
                 except Exception as err:
                     print("failure:", lawdata.name)
                     # for q in queries:

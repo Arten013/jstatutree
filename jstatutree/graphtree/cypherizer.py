@@ -7,6 +7,8 @@ from time import sleep
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import traceback
 
+class TreeCypherizeError(Exception):
+    pass
 
 class TreeCypherizer(object):
     EXECUTOR = ThreadPoolExecutor(max_workers=5)
@@ -49,9 +51,12 @@ class TreeCypherizer(object):
         node_infos = {}
         lawdata_id = yield node_infos
         node_infos.update({'lawdata_node': {'parent_node_label': 'Statutories', 'parent_node_id':lawdata_id}})
-        for cypher in cyphers:
-            res = yield cypher.query(**node_infos[str(cypher.require_node)])
-            node_infos.update(cls.cypher_result_map(res))
+        try:
+            for cypher in cyphers:
+                res = yield cypher.query(**node_infos[str(cypher.require_node)])
+                node_infos.update(cls.cypher_result_map(res))
+        except:
+            raise TreeCypherizeError
         yield None
         raise StopIteration
 
