@@ -48,8 +48,10 @@ class GDBReikiData(ReikiData):
         return re.split("/", self.code)[2]
 from time import sleep
 class JStatutreeGDB(object):
-    def __init__(self, *args, **kwargs):
-        self.driver = GraphDatabase.driver(*args, **kwargs)
+    def __init__(self, uri, auth):
+        self.uri = uri
+        self.auth = auth
+        self.driver = GraphDatabase.driver(uri=uri, auth=auth)
 
     def __del__(self):
         self.close()
@@ -88,8 +90,8 @@ class ReikiGDB(JStatutreeGDB):
                 }
             }
     governments = []
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, uri, auth):
+        super().__init__(uri, auth)
         with self.driver.session() as session:
             session.write_transaction(self.init_db)
             ret = session.read_transaction(self.load_govs).values()
