@@ -215,9 +215,21 @@ class Subitem5Sentence(TreeElement):
     SUBLEVEL = -1
     PARENT_CANDIDATES = (Subitem5,)
 
-class Sentence(TreeElement):
+class Column(TreeElement):
     LEVEL = Subitem5.LEVEL + 1
     PARENT_CANDIDATES = (
+        ParagraphSentence, 
+        ItemSentence, 
+        Subitem1Sentence, 
+        Subitem2Sentence, 
+        Subitem3Sentence, 
+        Subitem4Sentence, 
+        Subitem5Sentence
+        )
+class Sentence(TreeElement):
+    LEVEL = Column.LEVEL + 1
+    PARENT_CANDIDATES = (
+        Column,
         ParagraphSentence, 
         ItemSentence, 
         Subitem1Sentence, 

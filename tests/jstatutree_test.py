@@ -121,7 +121,9 @@ class VirtualEtypesTestCase(unittest.TestCase):
         self.assertEqual(elem.is_vnode, is_vnode)
 
     def elements_match(self, tree, target_type, patterns=[[]]):
-        for i, e in enumerate(tree.depth_first_search(target_type, valid_vnode=True)):
+        sresults = list(tree.depth_first_search(target_type, valid_vnode=True))
+        self.assertEqual(len(sresults), len(patterns))
+        for i, e in enumerate(sresults):
             self.element_match(e, target_type, *patterns[i])
 
     def test_depth_first_search(self):
@@ -140,8 +142,12 @@ class VirtualEtypesTestCase(unittest.TestCase):
                 [0, "", True],
                 [0, "", True],
                 [1, "", False ],
-                [2, "", False ]
+                [2, "", False ],
+                [3, "", False ]
             ]
+            )
+        self.elements_match(tree, xml_etypes.Column, patterns=
+           [[0, "", True]] * 8 + [[1, "", False]]
             )
         self.elements_match(tree, xml_etypes.Subitem1, patterns=
             [
@@ -150,7 +156,8 @@ class VirtualEtypesTestCase(unittest.TestCase):
                 [0, "", True],
                 [0, "", True ],
                 [0, "", True ],
-                [1, "", False ]
+                [1, "", False ],
+                [0, "", True ],
             ]
             )
 

@@ -143,5 +143,9 @@ class Subitem5(N4JExpansion, etypes.Subitem5):
 class Subitem5Sentence(N4JExpansion, etypes.Subitem5Sentence):
     pass
 
+class Subitem5Sentence(N4JExpansion, etypes.Column):
+    pass
+
+
 class Sentence(N4JExpansion, etypes.Sentence):
     pass

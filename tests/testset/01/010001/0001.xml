@@ -39,14 +39,14 @@
 					</ParagraphSentence>
 					<Item Num="1">
 						<ItemSentence>
-							<Sentence Num="1"> 第一号第一文 </Sentence>		
+							<Sentence Num="1"> 第一号第一文 </Sentence>
 							<Sentence Num="2"> 第一号第二文 </Sentence>
 						</ItemSentence>
 					</Item>
 					<Item Num="2">
 						<ItemSentence>
 							<Sentence> 第二号柱書き </Sentence>
-						</ItemSentence>	
+						</ItemSentence>
 						<Subitem1 Num="1">
 							<Subitem1Sentence>
 								<Sentence> 第一号柱書き </Sentence>
@@ -57,6 +57,14 @@
 								</Subitem2Sentence>
 							</Subitem2>
 						</Subitem1>
+					</Item>
+					<Item Num="3">
+                        <ItemSentence>
+                            <Column>
+							    <Sentence Num="1"> 第三号第一文 </Sentence>
+							    <Sentence Num="2"> 第三号第二文 </Sentence>
+                            </Column>
+						</ItemSentence>
 					</Item>
 				</Paragraph>
 			</Article>

@@ -118,5 +118,8 @@ class Subitem5(MLExpansion, etypes.Subitem5):
 class Subitem5Sentence(MLExpansion, etypes.Subitem5Sentence):
     pass
 
+class Column(MLExpansion, etypes.Column):
+    pass
+
 class Sentence(MLExpansion, etypes.Sentence):
     pass

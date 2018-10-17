@@ -144,5 +144,8 @@ class Subitem5(XMLExpansion, etypes.Subitem5):
 class Subitem5Sentence(XMLExpansion, etypes.Subitem5Sentence):
     pass
 
+class Column(XMLExpansion, etypes.Column):
+    pass
+
 class Sentence(XMLExpansion, etypes.Sentence):
     pass
