@@ -25,7 +25,7 @@ class LawError(Exception):
             "## {0} ##".format(self.__class__.__name__) +\
             "\nLawName: \t"+self._law_name +\
             "\nLawNum:  \t"+self._law_num +\
-            "\nCode:    \t"+self._code + self.error_detail +\
+            "\nCode:    \t"+str(self._code) + self.error_detail +\
             "\n\n"
             )
 
