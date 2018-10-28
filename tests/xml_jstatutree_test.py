@@ -60,6 +60,11 @@ class ReikiXMLReaderTestCase(unittest.TestCase):
             [etype.Subitem2, 1, ""],
             [etype.Subitem2Sentence, 1, ""],
             [etype.Sentence, 1, "第一号柱書き"],
+            [etype.Item, 3, ""],
+            [etype.ItemSentence, 1, ""],
+            [etype.Column, 1, ""],
+            [etype.Sentence, 1, "第三号第一文"],
+            [etype.Sentence, 2, "第三号第二文"],
 
         ]
         for i, child in enumerate(tree.depth_first_iteration()):

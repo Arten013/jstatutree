@@ -71,6 +71,11 @@ class ReikiKVSReaderTestCase(unittest.TestCase):
             [ml_etypes.Subitem2, 1, ""],
             [ml_etypes.Subitem2Sentence, 1, ""],
             [ml_etypes.Sentence, 1, "第一号柱書き"],
+            [ml_etypes.Item, 3, ""],
+            [ml_etypes.ItemSentence, 1, ""],
+            [ml_etypes.Column, 1, ""],
+            [ml_etypes.Sentence, 1, "第三号第一文"],
+            [ml_etypes.Sentence, 2, "第三号第二文"],
 
         ]
         for i, child in enumerate(tree.depth_first_iteration()):
@@ -111,8 +116,12 @@ class ReikiKVSReaderTestCase(unittest.TestCase):
                 [0, "", True],
                 [0, "", True],
                 [1, "", False ],
-                [2, "", False ]
+                [2, "", False ],
+                [3, "", False ]
             ]
+            )
+        self.elements_match(tree, ml_etypes.Column, patterns=
+           [[0, "", True]] * 8 + [[1, "", False]]
             )
         self.elements_match(tree, ml_etypes.Subitem1, patterns=
             [
@@ -121,7 +130,8 @@ class ReikiKVSReaderTestCase(unittest.TestCase):
                 [0, "", True],
                 [0, "", True ],
                 [0, "", True ],
-                [1, "", False ]
+                [1, "", False ],
+                [0, "", True ],
             ]
             )
 
