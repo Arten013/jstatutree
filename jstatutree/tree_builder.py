@@ -4,6 +4,7 @@ from .exceptions import *
 from xml.etree import ElementTree as ET
 from . import etypes
 from .lawdata import LawData
+import os
 
 class JstatutreeBuilder(ET.TreeBuilder):
     SKIP_ELEM_PATTERNS = {
@@ -66,24 +67,24 @@ class JstatutreeBuilder(ET.TreeBuilder):
         """
         self._flush()
         self._last = elem = self._factory(tag, tag, attrs)
-        print(self._last.tag, self._last.etype)
+        # print(self._last.tag, self._last.etype)
         if tag == 'MainProvision':
             self._is_main_provision = True
         if not self._is_main_provision and not tag == self._root_tag:
-            print('> prov skip')
+            # print('> prov skip')
             self._elem.append([elem, False])
             self._tail = 0
             return elem
         for ptn in self._skip_elems:
             if ptn.match(elem.etype):
-                print('> elem skip (UNK or skip setting)')
+                # print('> elem skip (UNK or skip setting)')
                 self._elem.append([elem, False])
                 break
         else:
             for e, used in self._elem[::-1]:
                 if not used:
                     continue
-                print('> add {} -> {}'.format(str(e), str(elem)))
+                # print('> add {} -> {}'.format(str(e), str(elem)))
                 self._assert_is_appendable(elem)
                 e.append(elem)
                 self._elem.append([elem, True])
@@ -96,6 +97,7 @@ class JstatutreeBuilder(ET.TreeBuilder):
                 else:
                     raise Exception('No root element in the element stack.')
         self._tail = 0
+        elem.code = os.path.join('', *[str(x)  for x, used in self._elem if used])
         return elem
 
     def end(self, tag):

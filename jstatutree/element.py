@@ -7,15 +7,22 @@ from .lawdata import LawData, ElementNumber
 from decimal import Decimal
 
 class Element(ET.Element):
+    __slots__ = [
+        "attrib",
+        "tag",
+        "test",
+        "tail",
+        "_children",
+        "code",
+        "title",
+        "caption",
+        "_num"
+    ]
+    
     LEVEL = 0
     SUBLEVEL = 0
     PARENT_CANDIDATES = ()
     JNAME = ""
-
-    tag = None
-    attrib = None
-    text = None
-    tail = None
 
     def __init__(self, tag, attrib={}, **extra):
         if not isinstance(attrib, dict):
@@ -23,8 +30,11 @@ class Element(ET.Element):
                 attrib.__class__.__name__,))
         attrib = attrib.copy()
         attrib.update(extra)
-        self.tag = tag
         self.attrib = attrib
+        self.code = None
+        self.tag = tag
+        self.text = None
+        self.tail = None
         self._children = []
         self.title = ''
         self.caption = ''
@@ -139,7 +149,7 @@ class Element(ET.Element):
 
     @property
     def sentence(self):
-        return self.text if self.etype(True) == 'Sentence' else ''
+        return self.text if self.etype == 'Sentence' else ''
 
     def itersentence(self):
         if self.etype == 'Sentence':
