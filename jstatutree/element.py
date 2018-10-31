@@ -10,7 +10,7 @@ class Element(ET.Element):
     __slots__ = [
         "attrib",
         "tag",
-        "test",
+        "text",
         "tail",
         "_children",
         "code",
