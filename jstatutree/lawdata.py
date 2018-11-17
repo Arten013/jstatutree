@@ -38,7 +38,7 @@ class LawData(object):
         self._lawnum = lawnum
 
     def is_reiki(self):
-        return True if re.search("(?:条例|規則)", self.lawnum) else False
+        return True if re.search("[日市区町村](?:条例|規則)", self.lawnum) else False
 
     @property
     def prefecture_code(self):
@@ -82,18 +82,16 @@ from pathlib import Path
 class ReikiCode(object):
     def __init__(self, codestr=None):
         if codestr:
-            parts = Path(codestr).parts
-            assert len(parts) == 3, 'You must specify reikicode in the format "pp/mmmmmm/ffff". You gave '+str(codestr)
-            self.prefecture_code, self.municipality_code, self.file_code = parts
+            self.prefecture_code, self.municipality_code, self.file_code = Path(codestr).parts[:3]
         else:
             self._prefecture_code, self._municipality_code, self._file_code = None, None, None
 
-    _path_code_extract_ptn = re.compile('/(\d{2}/\d{6}/\d{4})\.xml$')
+    _path_code_extract_ptn = re.compile('/(\d{2}/\d{6}/\d{4})(\.xml)?$')
     @classmethod
     def init_from_path(cls, path):
         path = str(path)
         return cls(re.search(cls._path_code_extract_ptn, path).group(1))
-
+    
     @property
     def prefecture_code(self):
         return self._prefecture_code or '00'
@@ -158,6 +156,9 @@ class ElementNumber(object):
         else:
             self.num = Decimal(value)
 
+    def __int__(self):
+        return int(self.num)
+            
     @property
     def main_num(self):
         return self.num.quantize(Decimal('1'))

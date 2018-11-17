@@ -5,6 +5,7 @@ from .exceptions import *
 from . import etypes
 from .lawdata import LawData, ElementNumber
 from decimal import Decimal
+from pathlib import Path
 
 class Element(ET.Element):
     __slots__ = [
@@ -16,7 +17,7 @@ class Element(ET.Element):
         "code",
         "title",
         "caption",
-        "_num"
+        "num"
     ]
     
     LEVEL = 0
@@ -38,8 +39,25 @@ class Element(ET.Element):
         self._children = []
         self.title = ''
         self.caption = ''
-        self._num = None
-
+        self.num = ElementNumber(self.attrib.get('Num', 1))
+        
+    def __getstate__(self):
+        return (
+            self.attrib,
+            self.tag,
+            self.text,
+            self.tail,
+            [e.code for e in self._children],
+            self.code,
+            self.title,
+            self.caption,
+            self.num
+        )
+    
+    def __setstate__(self, state):
+        for i, attr_name in enumerate(self.__slots__):
+            setattr(self, attr_name, state[i])
+            
     def __repr__(self):
         return "<%s %r at %#x>" % (self.__class__.__name__, self.tag, id(self))
 
@@ -50,6 +68,10 @@ class Element(ET.Element):
         elem = self.makeelement(self.tag, self.attrib)
         elem.text = self.text
         elem.tail = self.tail
+        elem.title = self.title,
+        elem.code = self.code
+        elem.caption = self.caption
+        elem.num = self.num
         elem[:] = self
         return elem
 
@@ -157,18 +179,24 @@ class Element(ET.Element):
         else:
             for child in self.iter('Sentence'):
                 yield child.sentence
-        raise StopIteration()
+        return
+        
+    def iterXsentence(self, include_code=False, include_value=True):
+        if self.CATEGORY == etypes.CATEGORY_TEXT:
+            if not include_value:
+                yield self.code
+                return
+            item = None
+            for s in self.itersentence():
+                item = item + s if item else s
+            yield (self.code, item) if include_code else item
+        else:
+            for child in list(self):
+                yield from child.iterXsentence(include_code=include_code)
 
     @property
     def etype(self):
         return self.__class__.__name__
-
-    @property
-    def num(self):
-        if 'Num' in self.attrib:
-            self._num = ElementNumber(self.attrib['Num'])
-        return self._num or ElementNumber(Decimal(1))
-
-    # "X法第n条第m項"のように出力
+    
     def __str__(self):
         return '{0}({1})'.format(self.__class__.__name__, self.num.num)

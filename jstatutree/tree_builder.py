@@ -3,7 +3,7 @@ import re
 from .exceptions import *
 from xml.etree import ElementTree as ET
 from . import etypes
-from .lawdata import LawData
+from .lawdata import LawData, ElementNumber
 import os
 
 class JstatutreeBuilder(ET.TreeBuilder):
@@ -12,7 +12,7 @@ class JstatutreeBuilder(ET.TreeBuilder):
                 'captions': re.compile('(Article|Paragraph)Caption'),
                 'provisions': re.compile('(Main|Supple)Provision'),
             }
-    def __init__(self, lawdata, skip_elems=['captions', 'sentences', 'provisions'], root_tag='Law'):
+    def __init__(self, lawdata, skip_categories=[etypes.CATEGORY_CAPTION, etypes.CATEGORY_PROVISION], skip_elems=['captions', 'provisions'], root_tag='Law'):
         self._data = [] # data collector
         self._elem = [] # element stack
         self._last = None # last element
@@ -21,8 +21,11 @@ class JstatutreeBuilder(ET.TreeBuilder):
         self._is_main_provision = False
         self.lawdata = lawdata
         self._factory = etypes.element_factory
-        self._skip_elems = [re.compile('UNK')]+[self.SKIP_ELEM_PATTERNS[ptn_name] for ptn_name in skip_elems]
+        #self._skip_elems = [re.compile('UNK')]+[self.SKIP_ELEM_PATTERNS[ptn_name] for ptn_name in skip_elems]
+        self._skip_categories = set(skip_categories)
         self._root_tag = root_tag
+        self._is_unk_branch_count = 0
+        self._codes = []
 
     def close(self):
         """Flush builder buffers and return toplevel document Element."""
@@ -36,10 +39,10 @@ class JstatutreeBuilder(ET.TreeBuilder):
                 text = "".join(self._data)
                 if self._tail:
                     assert self._last.tail is None, "internal error (tail)"
-                    self._last.tail = text
+                    self._last.tail = text or ''
                 else:
                     assert self._last.text is None, "internal error (text)"
-                    self._last.text = text
+                    self._last.text = text or ''
             self._data = []
 
     def preprocess(self, data):
@@ -75,29 +78,54 @@ class JstatutreeBuilder(ET.TreeBuilder):
             self._elem.append([elem, False])
             self._tail = 0
             return elem
-        for ptn in self._skip_elems:
+        """
+        for i, ptn in enumerate(self._skip_elems):
             if ptn.match(elem.etype):
                 # print('> elem skip (UNK or skip setting)')
                 self._elem.append([elem, False])
+                if i == 0:
+                    # print('UNK count:',self._is_unk_branch_count,'->',self._is_unk_branch_count+1)
+                    self._is_unk_branch_count += 1
                 break
+        """
+        if elem.CATEGORY == etypes.CATEGORY_UNKNOWN:
+            # print('UNK count:',self._is_unk_branch_count,'->',self._is_unk_branch_count+1)
+            self._is_unk_branch_count += 1
+            self._elem.append([elem, False])
+        elif elem.CATEGORY in self._skip_categories:
+            # print('> elem skip (UNK or skip setting)')
+            self._elem.append([elem, False])
         else:
             for e, used in self._elem[::-1]:
                 if not used:
                     continue
-                # print('> add {} -> {}'.format(str(e), str(elem)))
-                self._assert_is_appendable(elem)
-                e.append(elem)
-                self._elem.append([elem, True])
+                if self._is_unk_branch_count == 0:
+                    # print('> add {} -> {}'.format(str(e), str(elem)))
+                    self._assert_is_appendable(elem)
+                    e.append(elem)
+                    self._elem.append([elem, True])
+                else:
+                    # print('> elem skip (under UNK skipper)', self._is_unk_branch_count)
+                    self._elem.append([elem, False])
                 break
             else:
                 if tag == self._root_tag:
                     self._elem.append([elem, True])
                     self._root = elem
-                    # print('> add as root')
+                    #print('> add as root')
                 else:
                     raise Exception('No root element in the element stack.')
         self._tail = 0
-        elem.code = os.path.join('', *[str(x)  for x, used in self._elem if used])
+        elem.code = os.path.join(str(self.lawdata.code), *[str(x)  for x, used in self._elem if used])
+        #print(self._codes)
+        if self._elem[-1][1]:
+            if elem.code in self._codes:
+                if 'Num' in elem.attrib:
+                    raise XMLStructureError(law=self.lawdata, error_detail="Element Code Duplication "+elem.code)
+                while elem.code in self._codes:
+                    elem.num = ElementNumber(int(elem.num)+1)
+                    elem.code = os.path.join(str(self.lawdata.code), *[str(x)  for x, used in self._elem if used])
+            self._codes.append(elem.code)
         return elem
 
     def end(self, tag):
@@ -110,13 +138,16 @@ class JstatutreeBuilder(ET.TreeBuilder):
         assert self._last.tag == tag,\
                "end tag mismatch (expected %s, got %s)" % (
                    self._last.tag, tag)
+        #print('END etype:', self._last.etype)
+        if self._is_main_provision and self._last.CATEGORY == etypes.CATEGORY_UNKNOWN:
+            self._is_unk_branch_count -= 1
         if self._last.tag == 'MainProvision':
             self._is_main_provision = False
         elif self._last.tag == 'LawNum':
             self.lawdata.lawnum = self._last.text
         elif self._last.tag == 'LawTitle':
             self.lawdata.title = self._last.text
-        elif 'Caption' in self._last.tag:
+        elif self._last.CATEGORY==etypes.CATEGORY_CAPTION:#'Caption' in self._last.tag:
             self._elem[-1][0].caption = self._last.text
         elif 'Title' in self._last.tag:
             self._elem[-1][0].title = self._last.text

@@ -19,3 +19,6 @@ class Jstatutree(ET.ElementTree):
                     break
                 parser.feed(data)
             self._root = parser.close()
+            
+    def iterXsentence(self, *args, **kwargs):
+        yield from self._root.iterXsentence(*args, **kwargs)
