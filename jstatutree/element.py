@@ -188,7 +188,10 @@ class Element(ET.Element):
                 return
             item = None
             for s in self.itersentence():
-                item = item + s if item else s
+                if item:
+                    item = s
+                else:
+                    item += s
             yield (self.code, item) if include_code else item
         else:
             for child in list(self):
