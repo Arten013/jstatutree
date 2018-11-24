@@ -3,6 +3,7 @@ from . import element
 from . import tree_builder
 from . import lawdata
 from . import exceptions
+from . import graph
 
 import unicodedata
 import re
@@ -22,3 +23,15 @@ class Jstatutree(ET.ElementTree):
             
     def iterXsentence(self, *args, **kwargs):
         yield from self._root.iterXsentence(*args, **kwargs)
+
+    def to_dot(self, *args, **kwargs):
+        return graph.element2viz(self.getroot(), self.lawdata.name, *args, *kwargs)
+    
+    def iterfind_by_code(self, code):
+        yield from self.getroot().iterfind_by_code()
+
+    def find_by_code(self, code):
+        return self.getroot().find_by_code(code)
+    
+    def findall_by_code(self, code):
+        return self.getroot().findall_by_code(code)

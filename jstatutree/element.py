@@ -6,6 +6,7 @@ from . import etypes
 from .lawdata import LawData, ElementNumber
 from decimal import Decimal
 from pathlib import Path
+from . import graph
 
 class Element(ET.Element):
     __slots__ = [
@@ -115,6 +116,23 @@ class Element(ET.Element):
     def remove(self, subelement):
         self._children.remove(subelement)
 
+    def iterfind_by_code(self, code):
+        #print(self.code, code, self.code==code)
+        if self.code == code:
+            yield self
+        elif self.code in code:
+            #print([c.code for c in self])
+            for c in self:
+                yield from c.iterfind_by_code(code)
+        return
+    
+    def findall_by_code(self, code):
+        return list(self.iterfind_by_code(code))
+    
+    def find_by_code(self, code):
+        for e in self.iterfind_by_code(code):
+            return e
+        
     def find(self, path, namespaces=None):
         return ElementPath.find(self, path, namespaces)
 
@@ -189,13 +207,13 @@ class Element(ET.Element):
             item = None
             for s in self.itersentence():
                 if item:
-                    item = s
-                else:
                     item += s
+                else:
+                    item = s
             yield (self.code, item) if include_code else item
         else:
             for child in list(self):
-                yield from child.iterXsentence(include_code=include_code)
+                yield from child.iterXsentence(include_code=include_code, include_value=include_value)
 
     @property
     def etype(self):
@@ -203,3 +221,7 @@ class Element(ET.Element):
     
     def __str__(self):
         return '{0}({1})'.format(self.__class__.__name__, self.num.num)
+
+    def to_dot(self, lawname='', *args, **kwargs):
+        return graph.element2viz(self, lawname, *args, **kwargs)
+    

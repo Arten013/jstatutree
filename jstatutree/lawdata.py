@@ -81,7 +81,9 @@ class LawData(object):
 from pathlib import Path
 class ReikiCode(object):
     def __init__(self, codestr=None):
-        if codestr:
+        if isinstance(codestr, ReikiCode):
+            self.prefecture_code, self.municipality_code, self.file_code = codestr.prefecture_code, codestr.municipality_code, codestr.file_code
+        elif codestr:
             self.prefecture_code, self.municipality_code, self.file_code = Path(codestr).parts[:3]
         else:
             self._prefecture_code, self._municipality_code, self._file_code = None, None, None
