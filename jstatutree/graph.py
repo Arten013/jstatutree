@@ -22,7 +22,7 @@ def get_sample_leaf(leaves, tag):
     for leaf in leaves:
         if tag in leaf:
             return leaf
-    raise ValueError("Invalid tag: "+tag)
+    return None
 
 def cptable_graph(qelem, telems, code_pairs, sub_pairs=[], tree_name_factory=lambda x: "", h_align=False, layout='dot'):
     code_pairs = [item for item in code_pairs if sum((telem.code in item[0]) or (telem.code in item[1]) for telem in telems) > 0]
@@ -80,6 +80,8 @@ def cptable_graph(qelem, telems, code_pairs, sub_pairs=[], tree_name_factory=lam
         else:
             raise ValueError("Invalid code_pair "+str(item))
         qleaf, tleaf = get_sample_leaf(leaves, qcluster), get_sample_leaf(leaves, tcluster)
+        if qleaf is None or tleaf is None:
+            continue
         G.edge(
             qleaf, tleaf, label=str(label), 
             ltail=("cluster_"+qcluster) if qleaf != qcluster else None,
@@ -98,6 +100,8 @@ def cptable_graph(qelem, telems, code_pairs, sub_pairs=[], tree_name_factory=lam
         else:
             raise ValueError("Invalid code_pair "+str(item))
         qleaf, tleaf = get_sample_leaf(leaves, qcluster), get_sample_leaf(leaves, tcluster)
+        if qleaf is None or tleaf is None:
+            continue
         G.edge(
             qleaf, tleaf, label=str(label), 
             ltail=("cluster_"+qcluster) if qleaf != qcluster else None,
