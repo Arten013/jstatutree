@@ -35,3 +35,6 @@ class Jstatutree(ET.ElementTree):
     
     def findall_by_code(self, code):
         return self.getroot().findall_by_code(code)
+    
+    def iterXsentence_code(self):
+        yield from self.iterXsentence(include_code=True, include_value=False)

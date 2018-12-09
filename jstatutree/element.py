@@ -198,23 +198,32 @@ class Element(ET.Element):
             for child in self.iter('Sentence'):
                 yield child.sentence
         return
-        
-    def iterXsentence(self, include_code=False, include_value=True):
+    def iterXsentence_code(self):
+        yield from self.iterXsentence_elem(include_code=True, include_value=False)
+
+    def iterXsentence_elem(self, include_code=False, include_value=True):
         if self.CATEGORY == etypes.CATEGORY_TEXT:
             if not include_value:
-                yield self.code
-                return
+                yield self.code if include_code else None
+            else:
+                yield (self.code, self) if include_code else self
+        else:
+            for child in list(self):
+                yield from child.iterXsentence_elem(include_code=include_code, include_value=include_value)
+            
+    def iterXsentence(self, include_code=False, include_value=True):
+        if not include_value:
+            yield from self.iterXsentence_elem(include_code=include_code, include_value=False)
+            return
+        for e in self.iterXsentence_elem(False, True):
             item = None
-            for s in self.itersentence():
+            for s in e.itersentence():
                 if item:
                     item += s
                 else:
                     item = s
-            yield (self.code, item) if include_code else item
-        else:
-            for child in list(self):
-                yield from child.iterXsentence(include_code=include_code, include_value=include_value)
-
+            yield (e.code, item) if include_code else item
+            
     @property
     def etype(self):
         return self.__class__.__name__
