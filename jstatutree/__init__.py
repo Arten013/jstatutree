@@ -5,9 +5,8 @@ from . import lawdata
 from . import exceptions
 from . import graph
 
-import unicodedata
-import re
 from xml.etree import ElementTree as ET
+
 
 class Jstatutree(ET.ElementTree):
     def __init__(self, path):
@@ -38,3 +37,18 @@ class Jstatutree(ET.ElementTree):
     
     def iterXsentence_code(self):
         yield from self.iterXsentence(include_code=True, include_value=False)
+
+    def iterXsentence_elem(self, include_code=False, include_value=True):
+        yield from self.getroot().iterXsentence_elem(include_code=include_code, include_value=include_value)
+
+    def change_root(self, code):
+        if str(code) == str(self.lawdata.code):
+            return self
+        new_root = self.find_by_code(code)
+        if new_root is None:
+            raise KeyError(code)
+        self._root = new_root
+        self.lawdata.code = self.lawdata.code.__class__(code)
+        self.lawdata.name = etypes.code2jname(code)
+        return self
+
