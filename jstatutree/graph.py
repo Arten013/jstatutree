@@ -133,11 +133,12 @@ def element2viz(root, lawname, _subgraph=True, return_sides=False, fusion_captio
     prev_cluster = None
     bottom_nodes = []
     elem_stack = [root]
-    
+    font = "IPAMincho"
     cluster_tag = 'cluster_'+str(root.code)
     clusters = [cluster_tag]
     sg = viz.Digraph(cluster_tag)
     sg.attr(label=lawname+etypes.code2jname(root.code)+root.caption)
+    sg.attr(fontname=font)
     subgraph_stack = [(sg, lawname+etypes.code2jname(root.code))]
     subgraph_stack [-1][0]
 
@@ -157,13 +158,14 @@ def element2viz(root, lawname, _subgraph=True, return_sides=False, fusion_captio
                 sg =  viz.Digraph(cluster_tag)
                 sg.attr(label=lawname+etypes.code2jname(target.code)+target.caption)
                 sg.attr(color=colorset[target.etype])
+                sg.attr(fontname=font)
                 subgraph_stack.append((sg, lawname+etypes.code2jname(target.code)))
             else:
                 elem_stack.extend(list(target)[::-1])
         else:
             texts = list(target.itertext())
             text = ''.join(texts if isinstance(texts[0], str) else [w for s in texts for w in s]) if len(texts) else ''
-            subgraph_stack[-1][0].node(target.code,shape='box', color=colorset[target.etype], label='\n'.join([text[i:i+30] for i in range(0, len(text), 30)]  ))
+            subgraph_stack[-1][0].node(target.code,fontname=font, shape='box', color=colorset[target.etype], label='\n'.join([text[i:i+30] for i in range(0, len(text), 30)]  ))
             if leaf_edges and (len(bottom_nodes) > 0):
                 if bottom_nodes[-1][1].name in subgraph_stack[-1][0].name:
                     bottom_nodes[-1][1].edge(bottom_nodes[-1][0].code, target.code, style = 'invis')
@@ -182,6 +184,8 @@ def element2viz(root, lawname, _subgraph=True, return_sides=False, fusion_captio
         else:
             return (ret, bottom_nodes[0][0], bottom_nodes[-1][0], leaves) if return_sides else  (ret, leaves)
     else:
+
+
         if return_clusters:
             return (ret, bottom_nodes[0][0], bottom_nodes[-1][0], clusters) if return_sides else  (ret, clusters)    
         else:

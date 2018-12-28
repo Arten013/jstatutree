@@ -48,7 +48,7 @@ class Element(ET.Element):
             self.tag,
             self.text,
             self.tail,
-            [e.code for e in self._children],
+            [e for e in self._children],
             self.code,
             self.title,
             self.caption,
@@ -58,7 +58,7 @@ class Element(ET.Element):
     def __setstate__(self, state):
         for i, attr_name in enumerate(self.__slots__):
             setattr(self, attr_name, state[i])
-            
+
     def __repr__(self):
         return "<%s %r at %#x>" % (self.__class__.__name__, self.tag, id(self))
 
@@ -134,15 +134,19 @@ class Element(ET.Element):
             return e
         
     def find(self, path, namespaces=None):
+        raise Exception()
         return ElementPath.find(self, path, namespaces)
 
     def findtext(self, path, default=None, namespaces=None):
+        raise Exception()
         return ElementPath.findtext(self, path, default, namespaces)
 
     def findall(self, path, namespaces=None):
+        raise Exception()
         return ElementPath.findall(self, path, namespaces)
 
     def iterfind(self, path, namespaces=None):
+        raise Exception()
         return ElementPath.iterfind(self, path, namespaces)
 
     def clear(self):
@@ -191,12 +195,12 @@ class Element(ET.Element):
     def sentence(self):
         return self.text if self.etype == 'Sentence' else ''
 
-    def itersentence(self):
+    def itersentence(self, include_code=False, include_value=True):
         if self.etype == 'Sentence':
-            yield self.sentence
+            yield (self.code, self.sentence) if include_code else self.sentence
         else:
             for child in self.iter('Sentence'):
-                yield child.sentence
+                yield (child.code, child.sentence) if include_code else child.sentence
         return
     def iterXsentence_code(self):
         yield from self.iterXsentence_elem(include_code=True, include_value=False)

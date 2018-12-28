@@ -23,7 +23,8 @@ class LawData(object):
 
     @property
     def name(self):
-        return "UNK" if self._name is None else self._name
+        from .etypes import code2jname
+        return ("UNK" if self._name is None else self._name)+code2jname(str(self.code))
 
     @name.setter
     def name(self, name):

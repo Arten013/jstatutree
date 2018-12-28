@@ -6,7 +6,7 @@ from . import exceptions
 from . import graph
 
 from xml.etree import ElementTree as ET
-
+import copy
 
 class Jstatutree(ET.ElementTree):
     def __init__(self, path):
@@ -27,7 +27,7 @@ class Jstatutree(ET.ElementTree):
         return graph.element2viz(self.getroot(), self.lawdata.name, *args, *kwargs)
     
     def iterfind_by_code(self, code):
-        yield from self.getroot().iterfind_by_code()
+        yield from self.getroot().iterfind_by_code(code)
 
     def find_by_code(self, code):
         return self.getroot().find_by_code(code)
@@ -44,11 +44,11 @@ class Jstatutree(ET.ElementTree):
     def change_root(self, code):
         if str(code) == str(self.lawdata.code):
             return self
-        new_root = self.find_by_code(code)
+        tree = copy.copy(self)
+        new_root = tree.find_by_code(code)
         if new_root is None:
             raise KeyError(code)
-        self._root = new_root
-        self.lawdata.code = self.lawdata.code.__class__(code)
-        self.lawdata.name = etypes.code2jname(code)
-        return self
+        tree._root = new_root
+        tree.lawdata.code = tree.lawdata.code.__class__(code)
+        return tree
 
