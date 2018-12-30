@@ -121,7 +121,7 @@ def cptable_graph(qelem, telems, code_pairs, sub_pairs=[], tree_name_factory=lam
                     if max_ranks.get(tk, -1) < i:
                         #print(tk, i)
                         max_ranks[tk] = i 
-                        G.body.append('{rank=same;'+'"'+get_sample_leaf(leaves, qcluster)+'"'+'; '+'"'+get_sample_leaf(leaves, tcluster)+'"'+';}')
+                        #G.body.append('{rank=same;'+'"'+get_sample_leaf(leaves, qcluster)+'"'+'; '+'"'+get_sample_leaf(leaves, tcluster)+'"'+';}')
                     break
                 break
     return G
@@ -168,10 +168,10 @@ def element2viz(root, lawname, _subgraph=True, return_sides=False, fusion_captio
             subgraph_stack[-1][0].node(target.code,fontname=font, shape='box', color=colorset[target.etype], label='\n'.join([text[i:i+30] for i in range(0, len(text), 30)]  ))
             if leaf_edges and (len(bottom_nodes) > 0):
                 if bottom_nodes[-1][1].name in subgraph_stack[-1][0].name:
-                    bottom_nodes[-1][1].edge(bottom_nodes[-1][0].code, target.code, style = 'invis')
+                    bottom_nodes[-1][1].edge(bottom_nodes[-1][0].code, target.code, style = 'invis', weight='1000')
                 #elif subgraph_stack[-1][0].name in bottom_nodes[-1][1].name :
                 else:
-                    subgraph_stack[-1][0].edge(bottom_nodes[-1][0].code, target.code, style = 'invis')
+                    subgraph_stack[-1][0].edge(bottom_nodes[-1][0].code, target.code, style = 'invis', weight='1000')
                 #else:
                     #print(subgraph_stack[-1][0].name, bottom_nodes[-1][1].name )
                    # raise
