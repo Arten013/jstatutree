@@ -134,19 +134,15 @@ class Element(ET.Element):
             return e
         
     def find(self, path, namespaces=None):
-        raise Exception()
         return ElementPath.find(self, path, namespaces)
 
     def findtext(self, path, default=None, namespaces=None):
-        raise Exception()
         return ElementPath.findtext(self, path, default, namespaces)
 
     def findall(self, path, namespaces=None):
-        raise Exception()
         return ElementPath.findall(self, path, namespaces)
 
     def iterfind(self, path, namespaces=None):
-        raise Exception()
         return ElementPath.iterfind(self, path, namespaces)
 
     def clear(self):
