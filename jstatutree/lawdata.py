@@ -147,6 +147,9 @@ class ReikiCode(object):
     def __hash__(self):
         return hash(str(self))
 
+    def __contains__(self, item):
+        str(self) in item
+
 # 例規のメタデータ
 ReikiData = LawData
 

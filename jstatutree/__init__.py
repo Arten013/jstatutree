@@ -11,6 +11,7 @@ import copy
 class Jstatutree(ET.ElementTree):
     def __init__(self, path):
         self.lawdata = lawdata.LawData(path=path)
+        self._find_cache = {}
         parser = ET.XMLParser(target=tree_builder.JstatutreeBuilder(lawdata=self.lawdata))
         with open(path, "rb") as source:
             while True:
@@ -19,7 +20,16 @@ class Jstatutree(ET.ElementTree):
                     break
                 parser.feed(data)
             self._root = parser.close()
-            
+
+    def __getstate__(self):
+        self._find_cache = None
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._find_cache = {}
+
     def iterXsentence(self, *args, **kwargs):
         yield from self._root.iterXsentence(*args, **kwargs)
 
@@ -30,7 +40,11 @@ class Jstatutree(ET.ElementTree):
         yield from self.getroot().iterfind_by_code(code)
 
     def find_by_code(self, code):
-        return self.getroot().find_by_code(code)
+        ret = self._find_cache.get(code, None)
+        if ret is None:
+            ret = self.getroot().find_by_code(code)
+            self._find_cache[code] = ret
+        return ret
     
     def findall_by_code(self, code):
         return self.getroot().findall_by_code(code)
@@ -45,6 +59,7 @@ class Jstatutree(ET.ElementTree):
         if str(code) == str(self.lawdata.code):
             return self
         tree = copy.copy(self)
+        tree._find_cache = {}
         new_root = tree.find_by_code(code)
         if new_root is None:
             raise KeyError(code)
