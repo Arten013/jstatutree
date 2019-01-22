@@ -197,3 +197,17 @@ class ElementNumber(object):
         if re.match('\d+:\d', strnum):
             return Decimal(re.split(':', strnum)[0])
         raise LawElementNumberError(error_detail="Invalid Format {}".format(strnum))
+
+    def __lt__(self, other):
+        if isinstance(other, ElementNumber):
+            return self.num.__lt__(other.num)
+        return self.num.__lt__(Decimal(other))
+
+    def __eq__(self, other):
+        if isinstance(other, ElementNumber):
+            return self.num.__eq__(other.num)
+        return self.num.__eq__(Decimal(other))
+
+    def __hash__(self):
+        return hash(self.num)
+
